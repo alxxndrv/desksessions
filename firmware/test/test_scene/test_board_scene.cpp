@@ -133,7 +133,9 @@ TEST_F(SceneTest, ScrollsToRevealTheCursorAndWrapsBack) {
 
 TEST_F(SceneTest, HoldFillDrainsWhenReleasedEarly) {
   apply(snapshotOf({session(1, SessionState::Done)}));
-  scene.hold(0.5f, now);
+  scene.hold(0.1f, now);
+  EXPECT_FLOAT_EQ(scene.holdFill(), 0.0f);  // a tap shows nothing
+  scene.hold(0.625f, now);
   EXPECT_FLOAT_EQ(scene.holdFill(), 0.5f);
   scene.hold(std::nullopt, now);
   run(1'000);

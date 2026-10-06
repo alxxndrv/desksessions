@@ -127,9 +127,11 @@ void BoardScene::hold(std::optional<float> progress, Instant now) {
   RowSlot* slot = selectedSlot();
   if (progress) {
     holding_ = true;
-    holdFill_.snapTo(*progress);
+    const float shown =
+        std::clamp((*progress - layout::kHoldReveal) / (1.0f - layout::kHoldReveal), 0.0f, 1.0f);
+    holdFill_.snapTo(shown);
     if (slot != nullptr) {
-      slot->lift.snapTo(*progress * layout::kHoldLift);
+      slot->lift.snapTo(shown * layout::kHoldLift);
     }
     return;
   }

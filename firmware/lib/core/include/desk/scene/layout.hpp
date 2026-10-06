@@ -13,5 +13,7 @@ inline constexpr float kExitOffset = -kScreenWidth;  // and leave to the left
 inline constexpr float kNudge = 5.0f;                // Pebble action-bar press offset
 inline constexpr float kWrapStretch = 6.0f;          // rubber band before wrapping around
 inline constexpr float kHoldLift = 0.6f;             // row brightening at full hold
+// The first quarter of a hold (150 ms) shows nothing, so plain taps never flash the fill.
+inline constexpr float kHoldReveal = 0.25f;
 
 }  // namespace desk::scene::layout
