@@ -7,6 +7,7 @@
 #include "desk/app/desk_app.hpp"
 #include "desk/app/ports.hpp"
 #include "desk/ui/canvas.hpp"
+#include "desk/ui/fonts.hpp"
 #include "desk/util/time.hpp"
 
 namespace desk::ui {
@@ -30,7 +31,11 @@ class Renderer {
   void drawPairing(const app::DeskApp& app, Instant now);
   void drawZzz(float x, float y, Instant now, float strength);
 
+  /// Parsed on first use, after the platform's heap is up.
+  const Fonts& fonts();
+
   Canvas& canvas_;
+  std::optional<Fonts> fonts_;
   app::Button lastHold_ = app::Button::Aux;
 };
 

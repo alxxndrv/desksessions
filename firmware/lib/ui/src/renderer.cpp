@@ -22,9 +22,6 @@ namespace layout = scene::layout;
 
 constexpr float kPi = std::numbers::pi_v<float>;
 
-const lgfx::IFont* const kNameFont = &fonts::lgfxJapanGothicP_16;
-const lgfx::IFont* const kSmallFont = &fonts::lgfxJapanGothicP_12;
-
 // Row geometry, relative to the row's top-left.
 constexpr float kBarX = 10.0f;
 constexpr float kGlyphX = 26.0f;
@@ -111,6 +108,13 @@ void fitText(lgfx::LovyanGFX& g, const char* text, float width, char* out, std::
 }
 
 }  // namespace
+
+const Fonts& Renderer::fonts() {
+  if (!fonts_) {
+    fonts_.emplace();
+  }
+  return *fonts_;
+}
 
 void Renderer::draw(const app::DeskApp& app, Instant now) {
   const scene::StageScene& stage = app.stage();
@@ -259,7 +263,7 @@ void Renderer::drawRow(const app::DeskApp& app, const scene::RowSlot& slot, Inst
   canvas_.setTextSize(scale);
 
   // Name: ellipsised, or scrolling through when selected and too long.
-  canvas_.setFont(kNameFont);
+  canvas_.setFont(fonts().name());
   const float nameWidth = static_cast<float>(canvas_.textWidth(session.name.c_str()));
   canvas_.setTextColor(fade(theme::kText));
   if (selected && nameWidth > kNameWidth) {
@@ -276,7 +280,7 @@ void Renderer::drawRow(const app::DeskApp& app, const scene::RowSlot& slot, Inst
   }
 
   // Detail and time.
-  canvas_.setFont(kSmallFont);
+  canvas_.setFont(fonts().small());
   canvas_.setTextColor(fade(theme::kTextDim));
   char detail[domain::kMaxDetailBytes + 8];
   if (session.subagents > 0) {
@@ -317,7 +321,7 @@ void Renderer::drawHeader(const app::DeskApp& app, Instant now,
     char clock[6];
     std::snprintf(clock, sizeof(clock), "%02u:%02u", static_cast<unsigned>(wallTime->hour),
                   static_cast<unsigned>(wallTime->minute));
-    canvas_.setFont(kSmallFont);
+    canvas_.setFont(fonts().small());
     canvas_.setTextDatum(textdatum_t::middle_right);
     canvas_.setTextColor(hex(theme::kTextDim));
     canvas_.drawString(clock, px(layout::kScreenWidth) - 8, px(layout::kHeaderHeight / 2.0f));
@@ -326,7 +330,7 @@ void Renderer::drawHeader(const app::DeskApp& app, Instant now,
 
 void Renderer::drawCounters(const app::DeskApp& app, float offsetY, float alpha) {
   const scene::BoardScene& scene = app.scene();
-  canvas_.setFont(kSmallFont);
+  canvas_.setFont(fonts().label());
   canvas_.setTextDatum(textdatum_t::middle_left);
   const float midY = layout::kHeaderHeight / 2.0f + offsetY;
   const float lineHeight = 14.0f;
@@ -370,7 +374,7 @@ void Renderer::drawCounters(const app::DeskApp& app, float offsetY, float alpha)
 void Renderer::drawAwayStatus(Instant now, float offsetY, float alpha) {
   const float midY = layout::kHeaderHeight / 2.0f + offsetY;
   canvas_.dot(11.0f, midY, 3.0f, hex(mix(theme::kBackground, theme::kTextFaint, alpha)));
-  canvas_.setFont(kSmallFont);
+  canvas_.setFont(fonts().small());
   canvas_.setTextDatum(textdatum_t::middle_left);
   canvas_.setTextColor(hex(mix(theme::kBackground, theme::kTextDim, alpha)));
   const char* label = "Mac asleep";
@@ -380,7 +384,7 @@ void Renderer::drawAwayStatus(Instant now, float offsetY, float alpha) {
 
 void Renderer::drawZzz(float x, float y, Instant now, float strength) {
   // Three z's drifting up and to the right, each fading in and out on its own beat.
-  canvas_.setFont(kSmallFont);
+  canvas_.setFont(fonts().small());
   canvas_.setTextDatum(textdatum_t::middle_center);
   for (int k = 0; k < 3; ++k) {
     const float p = phase(now.sinceBoot + Millis{k * 800}, Millis{2'400});
@@ -428,7 +432,7 @@ void Renderer::drawQuiet(const app::DeskApp& app, Instant now) {
   face.squash = 1.0f + 0.035f * breath;
   glyphs::face(canvas_, kCx, kCy, radius, face, hex(theme::kSurface), hex(theme::kTextDim));
 
-  canvas_.setFont(kNameFont);
+  canvas_.setFont(fonts().name());
   canvas_.setTextDatum(textdatum_t::middle_center);
   canvas_.setTextColor(hex(mix(theme::kBackground, theme::kTextDim, stage.quiet())));
   canvas_.drawString("All quiet", px(kCx), px(kCy + 40.0f + 4.0f * (1.0f - stage.quiet())));
@@ -470,7 +474,7 @@ void Renderer::drawPairing(const app::DeskApp& app, Instant now) {
   face.squash = 1.0f + 0.03f * std::sin(2.0f * kPi * phase(now.sinceBoot, Millis{2'800}));
 
   if (app.phase() == app::Phase::Pairing) {
-    canvas_.setFont(kSmallFont);
+    canvas_.setFont(fonts().small());
     canvas_.setTextDatum(textdatum_t::middle_center);
     canvas_.setTextColor(hex(theme::kTextDim));
     canvas_.drawString("Confirm this code on your Mac", px(x + 160.0f), 30);
@@ -478,7 +482,7 @@ void Renderer::drawPairing(const app::DeskApp& app, Instant now) {
     // Digits drop in one after another with a moook.
     char code[8];
     std::snprintf(code, sizeof(code), "%06u", static_cast<unsigned>(app.connection().passkey()));
-    canvas_.setFont(&fonts::FreeSansBold24pt7b);
+    canvas_.setFont(fonts().digits());
     const Millis since = now - stage.pairingSince();
     float digitX = x + 160.0f - 3.0f * 30.0f - 8.0f;
     for (int i = 0; i < 6; ++i) {
@@ -490,7 +494,7 @@ void Renderer::drawPairing(const app::DeskApp& app, Instant now) {
       canvas_.drawString(digit, px(digitX + 15.0f), px(92.0f + dy));
       digitX += 30.0f + (i == 2 ? 16.0f : 0.0f);
     }
-    canvas_.setFont(kSmallFont);
+    canvas_.setFont(fonts().small());
     canvas_.setTextColor(hex(theme::kTextFaint));
     canvas_.drawString("Hold ↑ + ↓ for 5 s to start over", px(x + 160.0f), 150);
     return;
@@ -498,10 +502,10 @@ void Renderer::drawPairing(const app::DeskApp& app, Instant now) {
 
   glyphs::face(canvas_, x + 62.0f, 78.0f, 22.0f, face, hex(theme::kSurface), hex(theme::kTextDim));
   canvas_.setTextDatum(textdatum_t::middle_left);
-  canvas_.setFont(kNameFont);
+  canvas_.setFont(fonts().name());
   canvas_.setTextColor(hex(theme::kText));
   canvas_.drawString("Let's pair", px(x + 112.0f), 62);
-  canvas_.setFont(kSmallFont);
+  canvas_.setFont(fonts().small());
   canvas_.setTextColor(hex(theme::kTextDim));
   canvas_.drawString("On your Mac: desksessions", px(x + 112.0f), 86);
   canvas_.drawString("→ Pair New Clock", px(x + 112.0f), 102);
