@@ -15,4 +15,11 @@ class RecordingLink final : public app::MacLink {
   int forgotPairing = 0;
 };
 
+/// Remembers the last backlight level.
+class FakeBacklight final : public app::Backlight {
+ public:
+  void set(float value) override { level = value; }
+  float level = -1.0f;
+};
+
 }  // namespace desk::test

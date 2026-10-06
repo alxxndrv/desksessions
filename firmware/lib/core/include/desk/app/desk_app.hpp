@@ -2,9 +2,11 @@
 
 #include <optional>
 
+#include "desk/app/backlight.hpp"
 #include "desk/app/button_gestures.hpp"
 #include "desk/app/connection.hpp"
 #include "desk/app/ports.hpp"
+#include "desk/app/wall_clock.hpp"
 #include "desk/domain/session_board.hpp"
 #include "desk/scene/board_scene.hpp"
 #include "desk/scene/stage_scene.hpp"
@@ -24,13 +26,17 @@ class DeskApp {
  public:
   static constexpr Millis kCursorIdleReset{30'000};
 
-  explicit DeskApp(MacLink& link) : link_(link) {}
+  DeskApp(MacLink& link, Backlight& backlight) : link_(link), backlight_(backlight) {}
 
   /// A fresh snapshot from the Mac.
   domain::Alert receive(const domain::Snapshot& snapshot, Instant now);
 
   /// The BLE link changed state.
   void linkChanged(const LinkEvent& event, Instant now);
+
+  /// The Mac's local time: `secondsOfDay` past midnight at `now`.
+  void setTime(std::uint32_t secondsOfDay, Instant now) { wallClock_.set(secondsOfDay, now); }
+  void setNightHours(NightHours hours) { backlightControl_.setNightHours(hours); }
 
   /// Advances one frame: buttons, idle behaviour, animation.
   void tick(const Inputs& inputs, Instant now);
@@ -41,12 +47,16 @@ class DeskApp {
   [[nodiscard]] const scene::StageScene& stage() const { return stage_; }
   [[nodiscard]] const Connection& connection() const { return connection_; }
   [[nodiscard]] Phase phase() const { return phase_; }
+  [[nodiscard]] std::optional<WallTime> wallTime(Instant now) const { return wallClock_.now(now); }
 
  private:
   void onGesture(const Gesture& gesture, Instant now);
   void moveCursor(domain::CursorMove move, Instant now);
 
   MacLink& link_;
+  Backlight& backlight_;
+  BacklightController backlightControl_;
+  WallClock wallClock_;
   domain::SessionBoard board_;
   scene::BoardScene scene_;
   scene::StageScene stage_;

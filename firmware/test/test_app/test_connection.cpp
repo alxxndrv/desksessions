@@ -35,7 +35,8 @@ TEST(Connection, GracePeriodsAfterLosingTheMac) {
 
 TEST(DeskAppLink, OfflineFreezesTimersAndDimsAfterGrace) {
   test::RecordingLink link;
-  DeskApp app{link};
+  test::FakeBacklight backlight;
+  DeskApp app{link, backlight};
   Instant now{Millis{1'000}};
   app.linkChanged({.kind = LinkEvent::Kind::Connected}, now);
   domain::Snapshot snapshot;
@@ -56,7 +57,8 @@ TEST(DeskAppLink, OfflineFreezesTimersAndDimsAfterGrace) {
 
 TEST(DeskAppLink, ChordForgetsPairing) {
   test::RecordingLink link;
-  DeskApp app{link};
+  test::FakeBacklight backlight;
+  DeskApp app{link, backlight};
   Instant now{Millis{1'000}};
   for (int i = 0; i < 5'200; ++i) {
     now = now + Millis{1};

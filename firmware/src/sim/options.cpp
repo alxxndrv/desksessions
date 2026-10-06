@@ -82,6 +82,14 @@ std::optional<Options> parse(int argc, char** argv) {
       for (const std::string& t : split(argv[++i], ',')) {
         options.shots.push_back(Millis{std::atoll(t.c_str())});
       }
+    } else if (arg == "--time" && hasValue) {
+      int hour = 0;
+      int minute = 0;
+      if (std::sscanf(argv[++i], "%d:%d", &hour, &minute) != 2) {
+        std::fprintf(stderr, "bad --time, want HH:MM\n");
+        return std::nullopt;
+      }
+      options.secondsOfDay = static_cast<std::uint32_t>(hour * 3600 + minute * 60);
     } else if (arg == "--script" && hasValue) {
       for (const std::string& item : split(argv[++i], ',')) {
         const auto cue = parseCue(item);

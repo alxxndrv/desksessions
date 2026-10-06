@@ -37,7 +37,8 @@ class DeskAppTest : public ::testing::Test {
 
   Instant now{Millis{5'000}};
   test::RecordingLink link;
-  DeskApp app{link};
+  test::FakeBacklight backlight;
+  DeskApp app{link, backlight};
 };
 
 }  // namespace

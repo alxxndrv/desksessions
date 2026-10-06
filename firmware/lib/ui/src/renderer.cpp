@@ -112,7 +112,7 @@ void fitText(lgfx::LovyanGFX& g, const char* text, float width, char* out, std::
 
 }  // namespace
 
-void Renderer::draw(const app::DeskApp& app, Instant now, std::optional<app::WallTime> wallTime) {
+void Renderer::draw(const app::DeskApp& app, Instant now) {
   const scene::StageScene& stage = app.stage();
   canvas_.fillScreen(hex(theme::kBackground));
 
@@ -127,7 +127,7 @@ void Renderer::draw(const app::DeskApp& app, Instant now, std::optional<app::Wal
     if (stage.asleep() > 0.001f) {
       drawAsleep(app, now);
     }
-    drawHeader(app, now, wallTime);
+    drawHeader(app, now, app.wallTime(now));
   }
   if (stage.pairing() > 0.001f) {
     drawPairing(app, now);

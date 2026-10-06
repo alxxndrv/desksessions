@@ -16,7 +16,7 @@ class Renderer {
  public:
   explicit Renderer(Canvas& canvas) : canvas_(canvas) {}
 
-  void draw(const app::DeskApp& app, Instant now, std::optional<app::WallTime> wallTime);
+  void draw(const app::DeskApp& app, Instant now);
 
  private:
   void drawList(const app::DeskApp& app, Instant now);

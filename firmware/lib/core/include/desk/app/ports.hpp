@@ -16,6 +16,14 @@ class MacLink {
   virtual void forgetPairing() = 0;
 };
 
+/// The screen's backlight.
+class Backlight {
+ public:
+  virtual ~Backlight() = default;
+  /// `level` in [0, 1].
+  virtual void set(float level) = 0;
+};
+
 /// Local wall-clock time, once known (the Mac sets it on every connect).
 struct WallTime {
   std::uint8_t hour = 0;

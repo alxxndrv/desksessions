@@ -120,13 +120,39 @@ class SimLink {
   int step_ = 0;
 };
 
-std::optional<app::WallTime> wallTime() {
+std::uint32_t secondsOfDay() {
   const std::time_t t = std::time(nullptr);
   std::tm local{};
   localtime_r(&t, &local);
-  return app::WallTime{static_cast<std::uint8_t>(local.tm_hour),
-                       static_cast<std::uint8_t>(local.tm_min)};
+  return static_cast<std::uint32_t>(local.tm_hour * 3600 + local.tm_min * 60 + local.tm_sec);
 }
+
+/// Shows backlight level by darkening the finished frame (the real panel dims its LEDs).
+class SimBacklight final : public app::Backlight {
+ public:
+  void set(float level) override { level_ = level; }
+
+  void apply(ui::Canvas& canvas) const {
+    if (level_ >= 0.999f) {
+      return;
+    }
+    // Perceived brightness: a dimmed backlight still shows something at the bottom end.
+    const auto scale = static_cast<std::uint32_t>(256.0f * (0.08f + 0.92f * level_));
+    auto* pixels = static_cast<std::uint16_t*>(canvas.getBuffer());
+    const std::size_t count = static_cast<std::size_t>(canvas.width()) * canvas.height();
+    for (std::size_t i = 0; i < count; ++i) {
+      const std::uint16_t v = static_cast<std::uint16_t>((pixels[i] << 8) | (pixels[i] >> 8));
+      const std::uint32_t r = ((v >> 11) & 0x1F) * scale >> 8;
+      const std::uint32_t g = ((v >> 5) & 0x3F) * scale >> 8;
+      const std::uint32_t b = (v & 0x1F) * scale >> 8;
+      const auto out = static_cast<std::uint16_t>((r << 11) | (g << 5) | b);
+      pixels[i] = static_cast<std::uint16_t>((out << 8) | (out >> 8));
+    }
+  }
+
+ private:
+  float level_ = 1.0f;
+};
 
 /// Edge detector for the emulated GPIOs (active low, like real buttons).
 class Key {
@@ -172,7 +198,9 @@ int run(bool* running) {
   if (!options.demo) {
     scenario.toggleAuto();
   }
-  app::DeskApp deskApp(scenario);
+  SimBacklight backlight;
+  app::DeskApp deskApp(scenario, backlight);
+  deskApp.setTime(options.secondsOfDay.value_or(secondsOfDay()), clock.now());
   deskApp.linkChanged({.kind = app::LinkEvent::Kind::Connected}, clock.now());
   ui::Renderer renderer(canvas);
   sim::Recorder recorder;
@@ -256,7 +284,8 @@ int run(bool* running) {
       deskApp.receive(scenario.snapshot(now), now);
     }
 
-    renderer.draw(deskApp, now, wallTime());
+    renderer.draw(deskApp, now);
+    backlight.apply(canvas);
     canvas.pushSprite(0, 0);
     recorder.frame(canvas);
 

@@ -5,6 +5,7 @@ namespace desk::app {
 domain::Alert DeskApp::receive(const domain::Snapshot& snapshot, Instant now) {
   const domain::Alert alert = board_.apply(snapshot, now);
   scene_.sync(board_, now);
+  backlightControl_.alert(alert, now);
   return alert;
 }
 
@@ -32,6 +33,7 @@ void DeskApp::tick(const Inputs& inputs, Instant now) {
 
   scene_.update(now);
   stage_.update(phase_, board_.empty(), board_.rows().size(), now);
+  backlight_.set(backlightControl_.level(phase_, board_.empty(), wallClock_.now(now), now));
 }
 
 void DeskApp::onGesture(const Gesture& gesture, Instant now) {
