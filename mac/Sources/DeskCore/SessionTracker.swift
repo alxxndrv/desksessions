@@ -39,7 +39,9 @@ public struct SessionTracker: Sendable {
             seen.insert(key)
             let reported: Phase?
             switch record.status {
-            case "busy", "shell": reported = .working
+            // "shell" means a background command (a dev server, say) is running while Claude
+            // itself sits idle, sometimes for days: not work in progress.
+            case "busy": reported = .working
             case "waiting": reported = .needsYou
             default: reported = nil  // idle
             }

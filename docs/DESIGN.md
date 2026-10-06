@@ -60,9 +60,11 @@ Status: fully agreed in grilling session 2026-10-07.
 |---|---|---|---|
 | 🔴 NEEDS YOU | blocked on permission / question | `waiting` | `PermissionRequest` |
 | 🟡 DONE | finished turn, you haven't come back | `busy`→`idle` | `Stop` |
-| 🟢 WORKING | running | `busy`, `shell` | `UserPromptSubmit`, `PostToolUse` |
+| 🟢 WORKING | running | `busy` | `UserPromptSubmit`, `PostToolUse` |
 
 - Seen idle sessions are hidden.
+- Claude's `shell` status means a background command is running while Claude itself is idle
+  (observed lasting days), so it counts as idle, not WORKING.
 - DONE **never expires by time**. Clears on: dismiss, new prompt, session exit (PID gone).
   Daily sweep auto-dismisses DONE rows older than 24 h.
 - Sort: NEEDS YOU → DONE → WORKING; within group, longest-waiting first.

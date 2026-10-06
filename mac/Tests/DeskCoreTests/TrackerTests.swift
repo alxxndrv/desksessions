@@ -148,3 +148,12 @@ private func claude(_ status: String, pid: Int32 = 1, id: String = "a", cwd: Str
     #expect(record.status == "waiting")
     #expect(record.waitingFor == "dialog open")
 }
+
+@Test func claudeShellIsABackgroundCommandNotWork() {
+    var tracker = SessionTracker()
+    tracker.updateClaude([claude("shell")], now: t0, isAlive: alive, home: noHome)
+    #expect(tracker.visible().isEmpty)
+    tracker.updateClaude([claude("busy")], now: t0 + 1, isAlive: alive, home: noHome)
+    tracker.updateClaude([claude("shell")], now: t0 + 2, isAlive: alive, home: noHome)
+    #expect(tracker.visible().map(\.state) == [.done])
+}
