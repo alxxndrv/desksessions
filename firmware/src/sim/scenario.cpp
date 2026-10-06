@@ -136,6 +136,16 @@ void Scenario::escalateFirstWorking(Instant now) {
   }
 }
 
+void Scenario::toggleEmpty() {
+  if (sessions_.empty()) {
+    sessions_.swap(stash_);
+  } else {
+    stash_ = sessions_;
+    sessions_.clear();
+  }
+  dirty_ = true;
+}
+
 Scenario::Live* Scenario::find(std::uint32_t id) {
   const auto it = std::find_if(sessions_.begin(), sessions_.end(),
                                [id](const Live& l) { return l.session.id.value == id; });

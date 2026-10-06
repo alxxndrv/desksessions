@@ -30,6 +30,8 @@ class Scenario final : public app::MacLink {
   void removeLast();
   void escalateFirstWorking(Instant now);
   void toggleAuto() { auto_ = !auto_; }
+  /// Empties the list (everything finished and dismissed), or brings it all back.
+  void toggleEmpty();
 
  private:
   struct Live {
@@ -41,6 +43,7 @@ class Scenario final : public app::MacLink {
   void setState(std::uint32_t id, domain::SessionState state, const char* detail, Instant now);
 
   std::vector<Live> sessions_;
+  std::vector<Live> stash_;
   std::uint32_t nextId_ = 100;
   std::size_t step_ = 0;
   Instant stepAt_;

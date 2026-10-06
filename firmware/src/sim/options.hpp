@@ -10,7 +10,7 @@ namespace desk::sim {
 
 /// A scripted input: press or hold a button, or poke the pretend Mac, at a time since launch.
 struct Cue {
-  enum class Action { Up, Down, Add, Remove, Escalate, Pause };
+  enum class Action { Up, Down, Add, Remove, Escalate, Pause, Link, Sleep, Pair, Empty };
   Millis at{0};
   Action action = Action::Down;
   Millis holdFor{90};
@@ -31,7 +31,8 @@ struct Options {
 ///   --slowmo F                  simulated speed, e.g. 0.25
 ///   --gif PATH --seconds N      record N simulated seconds, then quit
 ///   --shots DIR --at T1,T2,...  PNG stills at simulated ms, then quit
-///   --script "T:act,..."        act ∈ up, down, longup, longdown, add, remove, needs, pause
+///   --script "T:act,..."        act ∈ up, down, longup, longdown, add, remove, needs, pause,
+///                               link, sleep, pair, empty
 std::optional<Options> parse(int argc, char** argv);
 
 }  // namespace desk::sim

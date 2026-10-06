@@ -33,6 +33,9 @@ void StageScene::update(Phase phase, bool boardEmpty, std::size_t rows, Instant 
   if ((phase == Phase::Offline) && previous_ != Phase::Offline && previous_ != Phase::Asleep) {
     offlineSince_ = now;
   }
+  if (phase == Phase::Pairing && previous_ != Phase::Pairing) {
+    pairingSince_ = now;
+  }
   previous_ = phase;
   if (phase != Phase::Asleep) {
     rows_ = rows;  // keep the count the collapse started with

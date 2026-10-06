@@ -47,6 +47,14 @@ std::optional<Cue> parseCue(const std::string& text) {
     cue.action = Cue::Action::Escalate;
   } else if (act == "pause") {
     cue.action = Cue::Action::Pause;
+  } else if (act == "link") {
+    cue.action = Cue::Action::Link;
+  } else if (act == "sleep") {
+    cue.action = Cue::Action::Sleep;
+  } else if (act == "pair") {
+    cue.action = Cue::Action::Pair;
+  } else if (act == "empty") {
+    cue.action = Cue::Action::Empty;
   } else {
     return std::nullopt;
   }

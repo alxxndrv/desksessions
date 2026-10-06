@@ -113,23 +113,37 @@ void fitText(lgfx::LovyanGFX& g, const char* text, float width, char* out, std::
 }  // namespace
 
 void Renderer::draw(const app::DeskApp& app, Instant now, std::optional<app::WallTime> wallTime) {
+  const scene::StageScene& stage = app.stage();
   canvas_.fillScreen(hex(theme::kBackground));
-  if (app.board().empty() && app.scene().slots().empty()) {
-    drawEmpty(now);
-  } else {
-    drawList(app, now);
+
+  if (stage.pairing() < 0.999f) {
+    if (stage.quiet() < 0.999f && stage.asleep() < 0.999f) {
+      drawList(app, now);
+      drawPortHole(stage.quiet());
+    }
+    if (stage.quiet() > 0.001f && stage.asleep() < 0.5f) {
+      drawQuiet(app, now);
+    }
+    if (stage.asleep() > 0.001f) {
+      drawAsleep(app, now);
+    }
+    drawHeader(app, now, wallTime);
   }
-  drawHeader(app, wallTime);
+  if (stage.pairing() > 0.001f) {
+    drawPairing(app, now);
+  }
 }
 
 void Renderer::drawList(const app::DeskApp& app, Instant now) {
   const scene::BoardScene& scene = app.scene();
-  const float originY = layout::kHeaderHeight - scene.scroll() + scene.nudgeOffset();
+  const float originY =
+      layout::kHeaderHeight - scene.scroll() + scene.nudgeOffset() + app.stage().wake();
   canvas_.setClipRect(0, px(layout::kHeaderHeight), px(layout::kScreenWidth),
                       px(layout::kViewportHeight));
 
   // Highlight under the selected row, with the long-press fill sweeping across it.
-  const float highlight = scene.highlightOpacity();
+  const float highlight =
+      scene.highlightOpacity() * (1.0f - app.stage().offline()) * (1.0f - app.stage().asleep());
   if (highlight > 0.01f) {
     const int top = px(originY + scene.highlightY()) + 2;
     canvas_.fillSmoothRoundRect(4, top, 312, 26, 8,
@@ -179,14 +193,21 @@ void Renderer::drawList(const app::DeskApp& app, Instant now) {
 void Renderer::drawRow(const app::DeskApp& app, const scene::RowSlot& slot, Instant now) {
   const scene::BoardScene& scene = app.scene();
   const domain::Session& session = slot.session;
-  const float originY = layout::kHeaderHeight - scene.scroll() + scene.nudgeOffset();
-  const float top = originY + slot.y.value();
+  const scene::StageScene& stage = app.stage();
+  const float originY = layout::kHeaderHeight - scene.scroll() + scene.nudgeOffset() + stage.wake();
+
+  // Falling asleep: rows gather towards the middle one after another and fade.
+  const auto index = static_cast<std::size_t>(std::max(0.0f, slot.y.target() / layout::kRowHeight));
+  const float collapse = anim::ease(anim::Curve::EaseIn, stage.collapse(index));
+  const float middle = scene.scroll() + layout::kViewportHeight / 2.0f - layout::kRowHeight / 2.0f;
+  const float top = originY + slot.y.value() + (middle - slot.y.value()) * collapse;
   if (top > layout::kScreenHeight || top + layout::kRowHeight < layout::kHeaderHeight) {
     return;
   }
   const float left = slot.x.value();
   const float centerY = top + layout::kRowHeight / 2.0f;
-  const float opacity = std::clamp(slot.opacity.value(), 0.0f, 1.0f);
+  const float opacity = std::clamp(slot.opacity.value(), 0.0f, 1.0f) *
+                        (1.0f - 0.5f * stage.offline()) * (1.0f - collapse);
   const float scale = slot.scale.value();
   const bool selected = scene.selectedId() == session.id && !slot.exiting;
   const auto fade = [&](Rgb c) { return hex(mix(theme::kBackground, c, opacity)); };
@@ -273,18 +294,41 @@ void Renderer::drawRow(const app::DeskApp& app, const scene::RowSlot& slot, Inst
   canvas_.setTextSize(1.0f);
 }
 
-void Renderer::drawHeader(const app::DeskApp& app, std::optional<app::WallTime> wallTime) {
+void Renderer::drawHeader(const app::DeskApp& app, Instant now,
+                          std::optional<app::WallTime> wallTime) {
   const scene::BoardScene& scene = app.scene();
   canvas_.fillRect(0, 0, px(layout::kScreenWidth), px(layout::kHeaderHeight),
                    hex(theme::kBackground));
-  if (scene.scroll() > 0.5f) {
+  if (scene.scroll() > 0.5f && app.stage().quiet() < 0.5f) {
     canvas_.drawFastHLine(0, px(layout::kHeaderHeight) - 1, px(layout::kScreenWidth),
                           hex(theme::kHairline));
   }
 
+  // Counters lift away and fade as the "Mac asleep" status rises in to replace them.
+  constexpr float kTravel = 7.0f;
+  const float away = anim::ease(anim::Curve::EaseInOut, app.stage().offline());
+  if (away < 0.5f) {
+    drawCounters(app, -away * 2.0f * kTravel, 1.0f - away * 2.0f);
+  } else {
+    drawAwayStatus(now, (1.0f - away) * 2.0f * kTravel, (away - 0.5f) * 2.0f);
+  }
+
+  if (wallTime) {
+    char clock[6];
+    std::snprintf(clock, sizeof(clock), "%02u:%02u", static_cast<unsigned>(wallTime->hour),
+                  static_cast<unsigned>(wallTime->minute));
+    canvas_.setFont(kSmallFont);
+    canvas_.setTextDatum(textdatum_t::middle_right);
+    canvas_.setTextColor(hex(theme::kTextDim));
+    canvas_.drawString(clock, px(layout::kScreenWidth) - 8, px(layout::kHeaderHeight / 2.0f));
+  }
+}
+
+void Renderer::drawCounters(const app::DeskApp& app, float offsetY, float alpha) {
+  const scene::BoardScene& scene = app.scene();
   canvas_.setFont(kSmallFont);
   canvas_.setTextDatum(textdatum_t::middle_left);
-  const float midY = layout::kHeaderHeight / 2.0f;
+  const float midY = layout::kHeaderHeight / 2.0f + offsetY;
   const float lineHeight = 14.0f;
 
   struct Counter {
@@ -297,15 +341,16 @@ void Renderer::drawHeader(const app::DeskApp& app, std::optional<app::WallTime> 
         Counter{SessionState::Working, "WORK"}}) {
     const float value = std::max(0.0f, scene.count(counter.state));
     const bool any = value > 0.05f;
+    const auto faded = [&](Rgb c) { return hex(mix(theme::kBackground, c, alpha)); };
     const Rgb dot = any ? theme::stateColor(counter.state) : theme::kTextFaint;
-    canvas_.dot(x + 3.0f, midY, 3.0f, hex(dot));
+    canvas_.dot(x + 3.0f, midY, 3.0f, faded(dot));
 
     // Odometer: the old number rolls up and out as the new one rolls in.
     const float whole = std::floor(value);
     const float frac = value - whole;
     const int digitX = px(x + 11.0f);
     canvas_.setClipRect(digitX, 2, 18, px(layout::kHeaderHeight) - 4);
-    canvas_.setTextColor(hex(any ? theme::kText : theme::kTextFaint));
+    canvas_.setTextColor(faded(any ? theme::kText : theme::kTextFaint));
     char digits[4];
     std::snprintf(digits, sizeof(digits), "%d", static_cast<int>(whole));
     canvas_.drawString(digits, digitX, px(midY - frac * lineHeight));
@@ -315,29 +360,151 @@ void Renderer::drawHeader(const app::DeskApp& app, std::optional<app::WallTime> 
     }
     canvas_.clearClipRect();
 
-    canvas_.setTextColor(hex(theme::kTextDim));
+    canvas_.setTextColor(faded(theme::kTextDim));
     const int labelX = digitX + std::max(8, static_cast<int>(canvas_.textWidth(digits))) + 3;
     canvas_.drawString(counter.label, labelX, px(midY));
     x = static_cast<float>(labelX + canvas_.textWidth(counter.label)) + 12.0f;
   }
+}
 
-  if (wallTime) {
-    char clock[6];
-    std::snprintf(clock, sizeof(clock), "%02u:%02u", static_cast<unsigned>(wallTime->hour),
-                  static_cast<unsigned>(wallTime->minute));
-    canvas_.setTextDatum(textdatum_t::middle_right);
-    canvas_.setTextColor(hex(theme::kTextDim));
-    canvas_.drawString(clock, px(layout::kScreenWidth) - 8, px(midY));
+void Renderer::drawAwayStatus(Instant now, float offsetY, float alpha) {
+  const float midY = layout::kHeaderHeight / 2.0f + offsetY;
+  canvas_.dot(11.0f, midY, 3.0f, hex(mix(theme::kBackground, theme::kTextFaint, alpha)));
+  canvas_.setFont(kSmallFont);
+  canvas_.setTextDatum(textdatum_t::middle_left);
+  canvas_.setTextColor(hex(mix(theme::kBackground, theme::kTextDim, alpha)));
+  const char* label = "Mac asleep";
+  canvas_.drawString(label, 19, px(midY));
+  drawZzz(static_cast<float>(19 + canvas_.textWidth(label)) + 6.0f, midY + 2.0f, now, alpha);
+}
+
+void Renderer::drawZzz(float x, float y, Instant now, float strength) {
+  // Three z's drifting up and to the right, each fading in and out on its own beat.
+  canvas_.setFont(kSmallFont);
+  canvas_.setTextDatum(textdatum_t::middle_center);
+  for (int k = 0; k < 3; ++k) {
+    const float p = phase(now.sinceBoot + Millis{k * 800}, Millis{2'400});
+    const float alpha = std::sin(kPi * p) * strength;
+    canvas_.setTextSize(0.7f + 0.4f * p);
+    canvas_.setTextColor(hex(mix(theme::kBackground, theme::kTextDim, alpha)));
+    canvas_.drawString("z", px(x + 7.0f * p), px(y - 9.0f * p));
+  }
+  canvas_.setTextSize(1.0f);
+}
+
+void Renderer::drawPortHole(float progress) {
+  // Pebble's port hole: the list shrinks away through a closing circle.
+  if (progress <= 0.001f) {
+    return;
+  }
+  constexpr float kCx = layout::kScreenWidth / 2.0f;
+  constexpr float kCy = layout::kHeaderHeight + layout::kViewportHeight / 2.0f;
+  constexpr float kFar = 190.0f;
+  const float radius = kFar * (1.0f - anim::ease(anim::Curve::EaseInOut, progress));
+  canvas_.fillArc(px(kCx), px(kCy), std::max(0, px(radius)), px(kFar), 0.0f, 360.0f,
+                  hex(theme::kBackground));
+}
+
+void Renderer::drawQuiet(const app::DeskApp& app, Instant now) {
+  const scene::StageScene& stage = app.stage();
+  constexpr float kCx = layout::kScreenWidth / 2.0f;
+  constexpr float kCy = 82.0f;
+  // Grows out of the port hole with a little overshoot.
+  constexpr anim::CubicBezier kBackOut{0.34f, 1.56f, 0.64f, 1.0f};
+  const float grow = kBackOut(stage.quiet());
+  const float radius = 20.0f * grow;
+  if (radius < 0.5f) {
+    return;
+  }
+
+  // Idle life: a slow breath, a blink every few seconds; sleepier while the Mac is away.
+  const float breath = std::sin(2.0f * kPi * phase(now.sinceBoot, Millis{3'200}));
+  const float blinkPhase = phase(now.sinceBoot, Millis{4'200});
+  const float blink =
+      blinkPhase > 0.95f ? std::fabs(std::cos(kPi * (blinkPhase - 0.95f) / 0.05f)) : 1.0f;
+  glyphs::Face face;
+  face.eyesOpen = blink * (1.0f - 0.55f * stage.offline());
+  face.smile = 1.0f - 0.6f * stage.offline();
+  face.squash = 1.0f + 0.035f * breath;
+  glyphs::face(canvas_, kCx, kCy, radius, face, hex(theme::kSurface), hex(theme::kTextDim));
+
+  canvas_.setFont(kNameFont);
+  canvas_.setTextDatum(textdatum_t::middle_center);
+  canvas_.setTextColor(hex(mix(theme::kBackground, theme::kTextDim, stage.quiet())));
+  canvas_.drawString("All quiet", px(kCx), px(kCy + 40.0f + 4.0f * (1.0f - stage.quiet())));
+  if (stage.offline() > 0.01f) {
+    drawZzz(kCx + radius + 6.0f, kCy - radius * 0.6f, now, stage.offline());
   }
 }
 
-void Renderer::drawEmpty(Instant now) {
-  // Placeholder until the "all quiet" character arrives.
-  const float bob = 2.0f * std::sin(2.0f * kPi * phase(now.sinceBoot, Millis{2'400}));
+void Renderer::drawAsleep(const app::DeskApp& app, Instant now) {
+  const scene::StageScene& stage = app.stage();
+  const float appear = std::clamp((stage.asleep() - 0.5f) * 2.0f, 0.0f, 1.0f);
+  if (appear <= 0.0f) {
+    return;
+  }
+  constexpr float kCx = layout::kScreenWidth / 2.0f;
+  constexpr float kCy = 86.0f;
+  const float breath = std::sin(2.0f * kPi * phase(now.sinceBoot, Millis{4'000}));
+  glyphs::Face face;
+  face.eyesOpen = 0.0f;
+  face.smile = 0.35f;
+  face.squash = 1.0f + 0.05f * breath;
+  const float radius = 20.0f * anim::ease(anim::Curve::EaseOut, appear);
+  glyphs::face(canvas_, kCx, kCy, radius, face,
+               hex(mix(theme::kBackground, theme::kSurface, appear)),
+               hex(mix(theme::kBackground, theme::kTextFaint, appear)));
+  drawZzz(kCx + radius + 6.0f, kCy - radius * 0.6f, now, appear);
+}
+
+void Renderer::drawPairing(const app::DeskApp& app, Instant now) {
+  const scene::StageScene& stage = app.stage();
+  const float x = (1.0f - stage.pairing()) * layout::kScreenWidth;
+  canvas_.fillRect(px(x), 0, px(layout::kScreenWidth) + 8, px(layout::kScreenHeight),
+                   hex(theme::kBackground));
+  canvas_.drawFastVLine(px(x), 0, px(layout::kScreenHeight), hex(theme::kHairline));
+
+  const float blinkPhase = phase(now.sinceBoot, Millis{3'600});
+  glyphs::Face face;
+  face.eyesOpen = blinkPhase > 0.95f ? 0.1f : 1.0f;
+  face.squash = 1.0f + 0.03f * std::sin(2.0f * kPi * phase(now.sinceBoot, Millis{2'800}));
+
+  if (app.phase() == app::Phase::Pairing) {
+    canvas_.setFont(kSmallFont);
+    canvas_.setTextDatum(textdatum_t::middle_center);
+    canvas_.setTextColor(hex(theme::kTextDim));
+    canvas_.drawString("Confirm this code on your Mac", px(x + 160.0f), 30);
+
+    // Digits drop in one after another with a moook.
+    char code[8];
+    std::snprintf(code, sizeof(code), "%06u", static_cast<unsigned>(app.connection().passkey()));
+    canvas_.setFont(&fonts::FreeSansBold24pt7b);
+    const Millis since = now - stage.pairingSince();
+    float digitX = x + 160.0f - 3.0f * 30.0f - 8.0f;
+    for (int i = 0; i < 6; ++i) {
+      const Millis local = since - Millis{i * 60};
+      const float dy = anim::moook(anim::kMoook, -24.0f, 0.0f, std::max(Millis{0}, local));
+      const float alpha = progress(std::max(Millis{0}, local), Millis{120});
+      const char digit[2] = {code[i], '\0'};
+      canvas_.setTextColor(hex(mix(theme::kBackground, theme::kText, alpha)));
+      canvas_.drawString(digit, px(digitX + 15.0f), px(92.0f + dy));
+      digitX += 30.0f + (i == 2 ? 16.0f : 0.0f);
+    }
+    canvas_.setFont(kSmallFont);
+    canvas_.setTextColor(hex(theme::kTextFaint));
+    canvas_.drawString("Hold ↑ + ↓ for 5 s to start over", px(x + 160.0f), 150);
+    return;
+  }
+
+  glyphs::face(canvas_, x + 62.0f, 78.0f, 22.0f, face, hex(theme::kSurface), hex(theme::kTextDim));
+  canvas_.setTextDatum(textdatum_t::middle_left);
   canvas_.setFont(kNameFont);
-  canvas_.setTextDatum(textdatum_t::middle_center);
+  canvas_.setTextColor(hex(theme::kText));
+  canvas_.drawString("Let's pair", px(x + 112.0f), 62);
+  canvas_.setFont(kSmallFont);
   canvas_.setTextColor(hex(theme::kTextDim));
-  canvas_.drawString("All quiet", px(layout::kScreenWidth / 2), px(95.0f + bob));
+  canvas_.drawString("On your Mac: desksessions", px(x + 112.0f), 86);
+  canvas_.drawString("→ Pair New Clock", px(x + 112.0f), 102);
 }
 
 }  // namespace desk::ui

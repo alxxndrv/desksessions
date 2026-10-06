@@ -29,6 +29,8 @@ class StageScene {
   [[nodiscard]] float wake() const { return wake_.value(); }
   /// When the current offline stretch began, for the bobbing zzz.
   [[nodiscard]] Instant offlineSince() const { return offlineSince_; }
+  /// When the passkey appeared, for its digits dropping in one by one.
+  [[nodiscard]] Instant pairingSince() const { return pairingSince_; }
 
  private:
   anim::Channel quiet_;
@@ -39,6 +41,7 @@ class StageScene {
   app::Phase previous_ = app::Phase::Unpaired;
   std::size_t rows_ = 0;
   Instant offlineSince_;
+  Instant pairingSince_;
 };
 
 }  // namespace desk::scene
