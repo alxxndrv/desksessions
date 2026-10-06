@@ -8,7 +8,7 @@
 #include "desk/domain/session.hpp"
 #include "desk/util/time.hpp"
 
-namespace desk::sim {
+namespace desk::demo {
 
 /// A pretend Mac: a list of sessions that changes on a loop and reacts to the clock's commands.
 class Scenario final : public app::MacLink {
@@ -52,4 +52,4 @@ class Scenario final : public app::MacLink {
   bool forgetRequested_ = false;
 };
 
-}  // namespace desk::sim
+}  // namespace desk::demo

@@ -1,4 +1,7 @@
 // Composition root for the Heltec Vision Master T190.
+//
+// Built with DESK_DEMO (env t190_demo), a scripted pretend Mac stands in for Bluetooth so the
+// clock can be tried on its own.
 
 #include <Arduino.h>
 #include <esp_timer.h>
@@ -8,6 +11,9 @@
 #include "ble_link.hpp"
 #include "board.hpp"
 #include "desk/app/desk_app.hpp"
+#ifdef DESK_DEMO
+#include "desk/demo/scenario.hpp"
+#endif
 #include "desk/protocol/wire.hpp"
 #include "desk/ui/canvas.hpp"
 #include "desk/ui/renderer.hpp"
@@ -40,15 +46,27 @@ Instant monotonicNow() { return Instant{Millis{esp_timer_get_time() / 1000}}; }
 
 LgfxT190 lcd;
 ui::Canvas canvas(&lcd);
-esp32::BleLink macLink;
 PanelBacklight backlight(lcd);
+#ifdef DESK_DEMO
+demo::Scenario scenario(monotonicNow());
+app::DeskApp deskApp(scenario, backlight);
+#else
+esp32::BleLink macLink;
 app::DeskApp deskApp(macLink, backlight);
+#endif
 ui::Renderer renderer(canvas);
 protocol::Reassembler reassembler;
 
 constexpr Millis kFrame{16};
 Instant nextFrame;
 
+#ifdef DESK_DEMO
+void drainLink(Instant now) {
+  if (scenario.advance(now)) {
+    deskApp.receive(scenario.snapshot(now), now);
+  }
+}
+#else
 void drainLink(Instant now) {
   esp32::LinkMessage message;
   while (macLink.pop(message)) {
@@ -64,6 +82,7 @@ void drainLink(Instant now) {
     }
   }
 }
+#endif
 
 }  // namespace
 
@@ -83,7 +102,12 @@ void setup() {
   canvas.setColorDepth(16);
   canvas.createSprite(320, 170);
 
+#ifdef DESK_DEMO
+  deskApp.linkChanged({.kind = app::LinkEvent::Kind::Connected}, monotonicNow());
+  deskApp.setTime(12 * 3600, monotonicNow());  // daytime, so the demo isn't dimmed
+#else
   macLink.begin();
+#endif
   nextFrame = monotonicNow();
 }
 

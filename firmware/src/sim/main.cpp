@@ -23,11 +23,11 @@
 #include <string>
 
 #include "desk/app/desk_app.hpp"
+#include "desk/demo/scenario.hpp"
 #include "desk/ui/canvas.hpp"
 #include "desk/ui/renderer.hpp"
 #include "options.hpp"
 #include "recorder.hpp"
-#include "scenario.hpp"
 
 namespace {
 
@@ -194,7 +194,7 @@ int run(bool* running) {
 
   const bool capturing = options.gif.has_value() || !options.shots.empty();
   SimClock clock(options.speed, capturing);
-  sim::Scenario scenario(clock.now());
+  demo::Scenario scenario(clock.now());
   if (!options.demo) {
     scenario.toggleAuto();
   }

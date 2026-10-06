@@ -1,9 +1,9 @@
-#include "scenario.hpp"
+#include "desk/demo/scenario.hpp"
 
 #include <algorithm>
 #include <cstdio>
 
-namespace desk::sim {
+namespace desk::demo {
 namespace {
 
 using domain::Agent;
@@ -169,4 +169,4 @@ void Scenario::setState(std::uint32_t id, SessionState state, const char* detail
   dirty_ = true;
 }
 
-}  // namespace desk::sim
+}  // namespace desk::demo

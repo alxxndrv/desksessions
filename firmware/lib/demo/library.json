@@ -1,0 +1,14 @@
+{
+  "name": "demo",
+  "version": "0.1.0",
+  "description": "A pretend Mac with scripted sessions, for the simulator and the device's demo build.",
+  "frameworks": "*",
+  "platforms": "*",
+  "dependencies": {
+    "core": "*"
+  },
+  "build": {
+    "includeDir": "include",
+    "srcDir": "src"
+  }
+}
