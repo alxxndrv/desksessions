@@ -8,7 +8,14 @@ domain::Alert DeskApp::receive(const domain::Snapshot& snapshot, Instant now) {
   return alert;
 }
 
+void DeskApp::linkChanged(const LinkEvent& event, Instant now) { connection_.onEvent(event, now); }
+
 void DeskApp::tick(const Inputs& inputs, Instant now) {
+  phase_ = connection_.phase(now);
+  if ((phase_ == Phase::Offline || phase_ == Phase::Asleep) && connection_.lostAt()) {
+    board_.freezeTime(*connection_.lostAt());  // the numbers stopped being true back then
+  }
+
   if (const auto gesture = gestures_.update(inputs.bootDown, inputs.auxDown, now)) {
     lastInteraction_ = now;
     onGesture(*gesture, now);
@@ -24,6 +31,7 @@ void DeskApp::tick(const Inputs& inputs, Instant now) {
   }
 
   scene_.update(now);
+  stage_.update(phase_, board_.empty(), board_.rows().size(), now);
 }
 
 void DeskApp::onGesture(const Gesture& gesture, Instant now) {
@@ -50,7 +58,7 @@ void DeskApp::onGesture(const Gesture& gesture, Instant now) {
       break;
     }
     case Kind::Chord:
-      // Re-pairing arrives with the connection state machine.
+      link_.forgetPairing();
       break;
   }
 }

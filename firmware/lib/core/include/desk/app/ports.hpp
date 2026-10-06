@@ -7,11 +7,13 @@
 
 namespace desk::app {
 
-/// Outbound: commands the clock sends back to the Mac.
-class CommandLink {
+/// Outbound side of the BLE link to the Mac.
+class MacLink {
  public:
-  virtual ~CommandLink() = default;
+  virtual ~MacLink() = default;
   virtual void send(const domain::Command& command) = 0;
+  /// Wipes the bond and starts advertising for a new pairing.
+  virtual void forgetPairing() = 0;
 };
 
 /// Local wall-clock time, once known (the Mac sets it on every connect).

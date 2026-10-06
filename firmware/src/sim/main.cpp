@@ -125,6 +125,7 @@ int run(bool* running) {
     scenario.toggleAuto();
   }
   app::DeskApp deskApp(scenario);
+  deskApp.linkChanged({.kind = app::LinkEvent::Kind::Connected}, clock.now());
   ui::Renderer renderer(canvas);
   sim::Recorder recorder;
   if (options.gif) {

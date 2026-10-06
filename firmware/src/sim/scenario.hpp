@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 #include "desk/app/ports.hpp"
@@ -10,7 +11,7 @@
 namespace desk::sim {
 
 /// A pretend Mac: a list of sessions that changes on a loop and reacts to the clock's commands.
-class Scenario final : public app::CommandLink {
+class Scenario final : public app::MacLink {
  public:
   explicit Scenario(Instant start);
 
@@ -20,6 +21,9 @@ class Scenario final : public app::CommandLink {
   [[nodiscard]] domain::Snapshot snapshot(Instant now) const;
 
   void send(const domain::Command& command) override;
+  void forgetPairing() override { forgetRequested_ = true; }
+  /// True once after the clock asked to forget its pairing.
+  bool takeForgetRequest() { return std::exchange(forgetRequested_, false); }
 
   // Keyboard pokes.
   void addSession(Instant now);
@@ -42,6 +46,7 @@ class Scenario final : public app::CommandLink {
   Instant stepAt_;
   bool auto_ = true;
   bool dirty_ = true;
+  bool forgetRequested_ = false;
 };
 
 }  // namespace desk::sim
