@@ -26,10 +26,12 @@ struct Options {
   std::vector<Millis> shots;        // simulated times to take stills at
   std::vector<Cue> cues;
   std::optional<std::uint32_t> secondsOfDay;  // --time HH:MM overrides the local clock
+  bool backlight = true;                      // --no-backlight: don't darken frames
 };
 
 /// Parses:
 ///   --no-demo
+///   --no-backlight              show frames at full brightness (cleaner recordings)
 ///   --slowmo F                  simulated speed, e.g. 0.25
 ///   --gif PATH --seconds N      record N simulated seconds (.gif or .mp4), then quit
 ///   --shots DIR --at T1,T2,...  PNG stills at simulated ms, then quit

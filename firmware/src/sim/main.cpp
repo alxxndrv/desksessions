@@ -285,7 +285,9 @@ int run(bool* running) {
     }
 
     renderer.draw(deskApp, now);
-    backlight.apply(canvas);
+    if (options.backlight) {
+      backlight.apply(canvas);
+    }
     canvas.pushSprite(0, 0);
     recorder.frame(canvas);
 

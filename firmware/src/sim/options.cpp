@@ -70,6 +70,8 @@ std::optional<Options> parse(int argc, char** argv) {
     const bool hasValue = i + 1 < argc;
     if (arg == "--no-demo") {
       options.demo = false;
+    } else if (arg == "--no-backlight") {
+      options.backlight = false;
     } else if (arg == "--slowmo" && hasValue) {
       options.speed = std::atof(argv[++i]);
     } else if (arg == "--gif" && hasValue) {
