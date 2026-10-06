@@ -36,7 +36,7 @@ for a new `frame` discards any partial one. Each chunk is at most `min(MTU − 3
 | Size | Field |
 |---|---|
 | 1 | `version` = 1 |
-| 1 | `flags`, reserved, 0 |
+| 1 | `flags` — bit 0: flip the screen 180°, bit 1: swap the buttons; others 0 |
 | 4 | `secondsOfDay` — Mac local time, seconds past midnight |
 | 1 | `nightStart` — hour 0–23 |
 | 1 | `nightEnd` — hour 0–23 |

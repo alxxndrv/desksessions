@@ -8,6 +8,7 @@
 #include <optional>
 #include <span>
 
+#include "desk/app/device_settings.hpp"
 #include "desk/domain/command.hpp"
 #include "desk/domain/session.hpp"
 
@@ -30,7 +31,12 @@ struct Frame {
   std::uint32_t secondsOfDay = 0;
   std::uint8_t nightStart = 23;
   std::uint8_t nightEnd = 8;
+  app::DeviceSettings settings;
 };
+
+/// Bits of the frame's `flags` byte.
+inline constexpr std::uint8_t kFlagFlipScreen = 1u << 0;
+inline constexpr std::uint8_t kFlagSwapButtons = 1u << 1;
 
 /// Parses a reassembled frame. Rejects unknown versions, bad enums and overruns.
 [[nodiscard]] std::optional<Frame> decodeFrame(std::span<const std::uint8_t> bytes);

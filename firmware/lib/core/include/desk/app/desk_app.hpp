@@ -5,6 +5,7 @@
 #include "desk/app/backlight.hpp"
 #include "desk/app/button_gestures.hpp"
 #include "desk/app/connection.hpp"
+#include "desk/app/device_settings.hpp"
 #include "desk/app/ports.hpp"
 #include "desk/app/wall_clock.hpp"
 #include "desk/domain/session_board.hpp"
@@ -41,6 +42,8 @@ class DeskApp {
   /// The Mac's local time: `secondsOfDay` past midnight at `now`.
   void setTime(std::uint32_t secondsOfDay, Instant now) { wallClock_.set(secondsOfDay, now); }
   void setNightHours(NightHours hours) { backlightControl_.setNightHours(hours); }
+  void applySettings(const DeviceSettings& settings) { settings_ = settings; }
+  [[nodiscard]] const DeviceSettings& settings() const { return settings_; }
 
   /// Advances one frame: buttons, idle behaviour, animation.
   void tick(const Inputs& inputs, Instant now);
@@ -67,6 +70,7 @@ class DeskApp {
   ButtonGestures gestures_;
   Connection connection_;
   Phase phase_ = Phase::Unpaired;
+  DeviceSettings settings_;
   Instant lastInteraction_;
 };
 

@@ -12,6 +12,7 @@ domain::Alert DeskApp::receive(const domain::Snapshot& snapshot, Instant now) {
 domain::Alert DeskApp::receive(const protocol::Frame& frame, Instant now) {
   setTime(frame.secondsOfDay, now);
   setNightHours(NightHours{.startHour = frame.nightStart, .endHour = frame.nightEnd});
+  applySettings(frame.settings);
   return receive(frame.snapshot, now);
 }
 
@@ -23,7 +24,10 @@ void DeskApp::tick(const Inputs& inputs, Instant now) {
     board_.freezeTime(*connection_.lostAt());  // the numbers stopped being true back then
   }
 
-  if (const auto gesture = gestures_.update(inputs.bootDown, inputs.auxDown, now)) {
+  // "Boot" means the up button wherever it ended up on the case.
+  const bool up = settings_.swapButtons ? inputs.auxDown : inputs.bootDown;
+  const bool down = settings_.swapButtons ? inputs.bootDown : inputs.auxDown;
+  if (const auto gesture = gestures_.update(up, down, now)) {
     lastInteraction_ = now;
     onGesture(*gesture, now);
   }

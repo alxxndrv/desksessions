@@ -18,7 +18,8 @@ inline constexpr std::uint8_t kTftCs = 39;
 inline constexpr std::uint8_t kTftReset = 40;
 inline constexpr std::uint8_t kTftBacklight = 17;  // HIGH = on, PWM for brightness
 
-/// Landscape. Flip to 3 if the clock's case holds the panel the other way up.
-inline constexpr std::uint8_t kRotation = 1;
+/// Landscape, the right way up in the Moon Phase Clock case; the flipped setting uses the other.
+inline constexpr std::uint8_t kRotation = 3;
+inline constexpr std::uint8_t kRotationFlipped = 1;
 
 }  // namespace desk::board

@@ -14,6 +14,7 @@ Frame sample() {
   frame.secondsOfDay = 13 * 3600 + 7 * 60;
   frame.nightStart = 22;
   frame.nightEnd = 7;
+  frame.settings.swapButtons = true;
   domain::Session a;
   a.id = domain::SessionId{0xDEADBEEF};
   a.agent = domain::Agent::Codex;
@@ -54,6 +55,8 @@ TEST(Wire, FrameRoundTrips) {
   ASSERT_TRUE(decoded.has_value());
   EXPECT_EQ(decoded->secondsOfDay, 13u * 3600 + 7 * 60);
   EXPECT_EQ(decoded->nightStart, 22);
+  EXPECT_FALSE(decoded->settings.flipScreen);
+  EXPECT_TRUE(decoded->settings.swapButtons);
   ASSERT_EQ(decoded->snapshot.sessions.size(), 2u);
   const domain::Session& a = decoded->snapshot.sessions[0];
   EXPECT_EQ(a.id.value, 0xDEADBEEFu);

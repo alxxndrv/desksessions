@@ -105,6 +105,8 @@ std::optional<Frame> decodeFrame(std::span<const std::uint8_t> bytes) {
       count > domain::kMaxSessions || frame.nightStart > 23 || frame.nightEnd > 23) {
     return std::nullopt;
   }
+  frame.settings.flipScreen = (flags & kFlagFlipScreen) != 0;
+  frame.settings.swapButtons = (flags & kFlagSwapButtons) != 0;
   for (std::uint8_t i = 0; i < count; ++i) {
     domain::Session s;
     std::uint8_t agent = 0;
@@ -128,7 +130,8 @@ std::optional<Frame> decodeFrame(std::span<const std::uint8_t> bytes) {
 std::size_t encodeFrame(const Frame& frame, std::span<std::uint8_t> out) {
   Writer w(out);
   w.u8(kVersion);
-  w.u8(0);
+  w.u8(static_cast<std::uint8_t>((frame.settings.flipScreen ? kFlagFlipScreen : 0) |
+                                 (frame.settings.swapButtons ? kFlagSwapButtons : 0)));
   w.u32(frame.secondsOfDay);
   w.u8(frame.nightStart);
   w.u8(frame.nightEnd);

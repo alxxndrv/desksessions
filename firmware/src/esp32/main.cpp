@@ -4,6 +4,7 @@
 // clock can be tried on its own.
 
 #include <Arduino.h>
+#include <Preferences.h>
 #include <esp_timer.h>
 
 #include <variant>
@@ -57,6 +58,40 @@ app::DeskApp deskApp(macLink, backlight);
 ui::Renderer renderer(canvas);
 protocol::Reassembler reassembler;
 
+/// Device settings survive reboots in NVS, so the picture is the right way up before the Mac
+/// connects.
+class SettingsStore {
+ public:
+  app::DeviceSettings load() {
+    prefs_.begin("desk", true);
+    app::DeviceSettings settings{.flipScreen = prefs_.getBool("flip", false),
+                                 .swapButtons = prefs_.getBool("swap", false)};
+    prefs_.end();
+    return settings;
+  }
+  void save(const app::DeviceSettings& settings) {
+    prefs_.begin("desk", false);
+    prefs_.putBool("flip", settings.flipScreen);
+    prefs_.putBool("swap", settings.swapButtons);
+    prefs_.end();
+  }
+
+ private:
+  Preferences prefs_;
+};
+
+SettingsStore settingsStore;
+app::DeviceSettings applied;
+
+void applyDisplaySettings() {
+  if (deskApp.settings() == applied) {
+    return;
+  }
+  applied = deskApp.settings();
+  lcd.setRotation(applied.flipScreen ? board::kRotationFlipped : board::kRotation);
+  settingsStore.save(applied);
+}
+
 constexpr Millis kFrame{16};
 Instant nextFrame;
 
@@ -96,7 +131,10 @@ void setup() {
   delay(20);
 
   lcd.init();
-  lcd.setRotation(board::kRotation);
+  applied = settingsStore.load();
+  deskApp.applySettings(applied);
+  lcd.setRotation(applied.flipScreen ? board::kRotationFlipped : board::kRotation);
+  lcd.fillScreen(TFT_BLACK);
   lcd.setBrightness(0);
   canvas.setPsram(false);  // internal RAM so the frame can go out by DMA
   canvas.setColorDepth(16);
@@ -117,6 +155,7 @@ void loop() {
   deskApp.tick({.bootDown = digitalRead(board::kBootButton) == LOW,
                 .auxDown = digitalRead(board::kAuxButton) == LOW},
                now);
+  applyDisplaySettings();
   renderer.draw(deskApp, now);
   canvas.pushSprite(0, 0);
 

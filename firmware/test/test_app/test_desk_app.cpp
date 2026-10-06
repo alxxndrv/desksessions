@@ -90,3 +90,9 @@ TEST_F(DeskAppTest, FramesSetTheClockAndNightHours) {
   EXPECT_EQ(app.wallTime(now), (WallTime{9, 15}));
   EXPECT_TRUE(app.board().empty());
 }
+
+TEST_F(DeskAppTest, SwappedButtonsTradePlaces) {
+  app.applySettings({.flipScreen = false, .swapButtons = true});
+  tap(true, false);  // BOOT now moves down
+  EXPECT_EQ(app.board().cursor(), 1u);
+}
