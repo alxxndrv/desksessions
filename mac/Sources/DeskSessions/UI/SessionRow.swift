@@ -44,10 +44,10 @@ struct SessionRow: View {
         .keyframeAnimator(initialValue: 0.0, trigger: shake) { view, x in
             view.offset(x: x)
         } keyframes: { _ in
-            SpringKeyframe(7, duration: 0.06)
-            SpringKeyframe(-6, duration: 0.08)
-            SpringKeyframe(3, duration: 0.08)
-            SpringKeyframe(0, spring: .bouncy)
+            SpringKeyframe(6, duration: 0.04)
+            SpringKeyframe(-5, duration: 0.05)
+            SpringKeyframe(2, duration: 0.05)
+            SpringKeyframe(0, spring: .snappy(duration: 0.12))
         }
     }
 }
@@ -61,8 +61,8 @@ private struct StateBar: View {
             .frame(width: 4, height: 22)
             .phaseAnimator([false, true], trigger: state == .needsYou) { bar, dim in
                 bar.opacity(state == .needsYou && dim ? 0.45 : 1)
-            } animation: { _ in state == .needsYou ? .easeInOut(duration: 0.7).delay(0.2) : nil }
-            .animation(.snappy, value: state)
+            } animation: { _ in state == .needsYou ? Motion.pulse.delay(0.2) : nil }
+            .animation(Motion.snappy, value: state)
     }
 
     private var color: Color {

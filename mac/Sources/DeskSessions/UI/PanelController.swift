@@ -61,14 +61,14 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.setFrame(NSRect(origin: origin, size: size), display: false)
         panel.alphaValue = 1
         panel.makeKeyAndOrderFront(nil)
-        // The content springs in (SwiftUI .snappy) on the next pass.
+        // The content springs in (Motion.appear) on the next pass.
         DispatchQueue.main.async { [model] in model.presented = true }
     }
 
     func hide() {
         guard panel.isVisible, model.presented else { return }
         model.presented = false
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + Motion.disappearDelay) { [weak self] in
             guard let self, !self.model.presented else { return }
             self.panel.orderOut(nil)
             self.onHide?()

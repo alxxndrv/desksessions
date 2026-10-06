@@ -20,7 +20,7 @@ struct PanelView: View {
         .glassEffect(.regular, in: .rect(cornerRadius: 16))
         .scaleEffect(model.presented ? 1 : 0.94, anchor: .top)
         .opacity(model.presented ? 1 : 0)
-        .animation(model.presented ? .snappy : .easeIn(duration: 0.14), value: model.presented)
+        .animation(model.presented ? Motion.appear : Motion.disappear, value: model.presented)
         .padding(12)  // room for the glass shadow inside the borderless panel
         .onChange(of: model.presented) { _, shown in if shown { searchFocused = true } }
     }
@@ -39,7 +39,7 @@ struct PanelView: View {
                 .onKeyPress(keys: [.delete], phases: .down) { press in
                     guard press.modifiers.contains(.command) else { return .ignored }
                     if !model.dismissSelected() {
-                        withAnimation(.snappy) { shake += 1 }
+                        withAnimation(Motion.snappy) { shake += 1 }
                     }
                     return .handled
                 }
@@ -88,14 +88,14 @@ struct PanelView: View {
                         }
                     }
                     .padding(6)
-                    .animation(.snappy, value: rows.map(\.id))
-                    .animation(.snappy, value: rows.map(\.state))
-                    .animation(.smooth(duration: 0.23), value: model.selectedID)
+                    .animation(Motion.snappy, value: rows.map(\.id))
+                    .animation(Motion.snappy, value: rows.map(\.state))
+                    .animation(Motion.select, value: model.selectedID)
                 }
                 .frame(maxHeight: 360)
                 .scrollIndicators(.never)
                 .onChange(of: model.selectedID) { _, id in
-                    withAnimation(.smooth(duration: 0.25)) { proxy.scrollTo(id) }
+                    withAnimation(Motion.scroll) { proxy.scrollTo(id) }
                 }
             }
         }
@@ -141,11 +141,11 @@ struct LinkBadge: View {
                 .frame(width: 7, height: 7)
                 .phaseAnimator([false, true], trigger: isSearching) { dot, pulse in
                     dot.opacity(isSearching && pulse ? 0.35 : 1)
-                } animation: { _ in isSearching ? .easeInOut(duration: 0.9) : nil }
+                } animation: { _ in isSearching ? Motion.pulse : nil }
             Text(label).foregroundStyle(.secondary)
                 .contentTransition(.opacity)
         }
-        .animation(.snappy, value: status)
+        .animation(Motion.snappy, value: status)
     }
 
     private var isSearching: Bool { status == .searching || status == .pairing }

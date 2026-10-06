@@ -96,7 +96,7 @@ private struct PairingSheet: View {
                     ProgressView("Looking for clocks…").controlSize(.small)
                 }
             }
-            .animation(.snappy, value: link.nearby)
+            .animation(Motion.snappy, value: link.nearby)
             HStack {
                 Spacer()
                 Button("Cancel", action: done).keyboardShortcut(.cancelAction)
@@ -157,7 +157,7 @@ private struct SessionsTab: View {
         } catch {
             hooksError = error.localizedDescription
         }
-        withAnimation(.snappy) { hooks = HooksInstaller().status() }
+        withAnimation(Motion.snappy) { hooks = HooksInstaller().status() }
     }
 }
 
@@ -224,7 +224,7 @@ private struct HotKeyRecorder: View {
             recording ? stop() : start()
         }
         .monospaced()
-        .animation(.snappy, value: recording)
+        .animation(Motion.snappy, value: recording)
     }
 
     private func start() {

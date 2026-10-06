@@ -44,7 +44,7 @@ echo "built $APP"
 
 if [[ "${1:-}" == "--install" ]]; then
   mkdir -p ~/Applications
-  pkill -x DeskSessions 2>/dev/null || true
+  pkill -x DeskSessions 2>/dev/null && sleep 1 || true
   rm -rf ~/Applications/DeskSessions.app
   cp -R "$APP" ~/Applications/
   open ~/Applications/DeskSessions.app
