@@ -18,6 +18,7 @@ float seconds(Millis duration) {
 
 void Channel::animateTo(float target, const Motion& motion, Instant now) {
   update(now);
+  next_.reset();
   if (animating_ && target == target_ && motion.kind == motion_.kind) {
     return;
   }
@@ -48,6 +49,7 @@ void Channel::animateTo(float target, const Motion& motion, Instant now) {
 }
 
 void Channel::snapTo(float value) {
+  next_.reset();
   value_ = value;
   from_ = value;
   target_ = value;
@@ -81,7 +83,9 @@ void Channel::update(Instant now) {
       }
       value_ = spring_.value;
       velocity_ = spring_.velocity;
-      animating_ = !spring_.settled();
+      if (spring_.settled()) {
+        finish(now);
+      }
       break;
 
     case Motion::Kind::Tween:
@@ -89,7 +93,7 @@ void Channel::update(Instant now) {
       const Millis length =
           motion_.kind == Motion::Kind::Tween ? motion_.duration : duration(*motion_.shape);
       if (now - start_ >= length) {
-        snapTo(target_);
+        finish(now);
         return;
       }
       value_ = sample(now);
@@ -97,6 +101,18 @@ void Channel::update(Instant now) {
       velocity_ = (value_ - sample(now - Millis{1})) * 1000.0f;
       break;
     }
+  }
+}
+
+void Channel::finish(Instant now) {
+  value_ = target_;
+  from_ = target_;
+  velocity_ = 0.0f;
+  spring_.snapTo(target_);
+  animating_ = false;
+  if (next_) {
+    const Leg leg = *next_;
+    animateTo(leg.target, leg.motion, now);
   }
 }
 

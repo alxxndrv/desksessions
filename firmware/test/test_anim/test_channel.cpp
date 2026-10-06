@@ -116,3 +116,27 @@ TEST(Channel, KickPopsAndReturns) {
   run(scale, now, 2'000);
   EXPECT_NEAR(scale.value(), 1.0f, 0.01f);
 }
+
+TEST(Channel, ThenRunsAFollowUpLeg) {
+  Instant now{Millis{1'000}};
+  Channel nudge{0.0f};
+  nudge.animateTo(-5.0f, Motion::tween(Curve::EaseOut, Millis{48}), now);
+  nudge.then(0.0f, Motion::tween(Curve::EaseOut, Millis{144}));
+  run(nudge, now, 48);
+  EXPECT_FLOAT_EQ(nudge.value(), -5.0f);
+  EXPECT_TRUE(nudge.animating());
+  run(nudge, now, 160);
+  EXPECT_FLOAT_EQ(nudge.value(), 0.0f);
+  EXPECT_FALSE(nudge.animating());
+}
+
+TEST(Channel, InterruptionDropsTheFollowUp) {
+  Instant now{Millis{1'000}};
+  Channel channel{0.0f};
+  channel.animateTo(10.0f, Motion::tween(Curve::Linear, Millis{100}), now);
+  channel.then(50.0f, Motion::tween(Curve::Linear, Millis{100}));
+  run(channel, now, 32);
+  channel.animateTo(-10.0f, Motion::tween(Curve::Linear, Millis{100}), now);
+  run(channel, now, 400);
+  EXPECT_FLOAT_EQ(channel.value(), -10.0f);
+}

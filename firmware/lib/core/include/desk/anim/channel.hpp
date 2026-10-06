@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 
 #include "desk/anim/easing.hpp"
 #include "desk/anim/moook.hpp"
@@ -46,6 +47,10 @@ class Channel {
   /// motion leaves the motion in flight alone.
   void animateTo(float target, const Motion& motion, Instant now);
 
+  /// Queues one follow-up leg, started the moment the current motion finishes. For scripted
+  /// multi-part gestures (nudge out and back, stretch then jump). Any animateTo/snapTo drops it.
+  void then(float target, const Motion& motion) { next_ = Leg{target, motion}; }
+
   /// Jumps to `value` with no motion. For values driven directly, such as a finger's hold.
   void snapTo(float value);
 
@@ -61,7 +66,13 @@ class Channel {
   [[nodiscard]] bool animating() const { return animating_; }
 
  private:
+  struct Leg {
+    float target;
+    Motion motion;
+  };
+
   [[nodiscard]] float sample(Instant at) const;
+  void finish(Instant now);
 
   Motion motion_{};
   float value_ = 0.0f;
@@ -73,6 +84,7 @@ class Channel {
   float stepBacklog_ = 0.0f;  // seconds of spring time not yet simulated
   Spring spring_;
   bool animating_ = false;
+  std::optional<Leg> next_;
 };
 
 }  // namespace desk::anim
