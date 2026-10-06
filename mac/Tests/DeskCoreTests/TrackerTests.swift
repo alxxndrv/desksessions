@@ -157,3 +157,11 @@ private func claude(_ status: String, pid: Int32 = 1, id: String = "a", cwd: Str
     tracker.updateClaude([claude("shell")], now: t0 + 2, isAlive: alive, home: noHome)
     #expect(tracker.visible().map(\.state) == [.done])
 }
+
+@Test func firstSightUsesClaudesOwnTimestamp() {
+    var tracker = SessionTracker()
+    var record = claude("waiting")
+    record.statusSince = t0 - 600
+    tracker.updateClaude([record], now: t0, isAlive: alive, home: noHome)
+    #expect(tracker.visible().first?.stateSince == t0 - 600)
+}

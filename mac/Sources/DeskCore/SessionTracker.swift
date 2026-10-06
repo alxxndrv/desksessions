@@ -57,8 +57,10 @@ public struct SessionTracker: Sendable {
             if entries[key] == nil {
                 entry.session.home = home(record.pid)
             }
+            // A status we see for the first time started when Claude says it did.
+            let since = entries[key] == nil ? min(now, record.statusSince ?? now) : now
             if let reported {
-                transition(&entry, to: reported, now: now)
+                transition(&entry, to: reported, now: since)
                 entry.session.detail = detail
             } else if entry.phase == .working || entry.phase == .needsYou {
                 transition(&entry, to: .done, now: now)
