@@ -8,14 +8,14 @@
 
 namespace desk::sim {
 
-/// Captures frames from the canvas: single PNG stills, or a GIF streamed through ffmpeg.
+/// Captures frames from the canvas: PNG stills, or a GIF or MP4 (by extension) through ffmpeg.
 class Recorder {
  public:
   ~Recorder() { stop(); }
 
   void still(ui::Canvas& canvas, const std::string& path);
 
-  void start(const std::string& gifPath, int fps);
+  void start(const std::string& path, int fps);
   void frame(ui::Canvas& canvas);
   void stop();
   [[nodiscard]] bool recording() const { return pipe_ != nullptr; }

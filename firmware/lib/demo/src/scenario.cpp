@@ -19,15 +19,15 @@ struct Seed {
 };
 
 constexpr Seed kSeeds[] = {
-    {1, Agent::Claude, SessionState::NeedsYou, "servarium-05", "perm", 42},
-    {2, Agent::Codex, SessionState::NeedsYou, "Introduce gated SFTP access", "?", 190},
-    {3, Agent::Claude, SessionState::Done, "documents-b9", "", 720},
-    {4, Agent::Claude, SessionState::Working, "desksessions-d9", "Bash", 65},
-    {5, Agent::Codex, SessionState::Working, "Check prod crosspost thumbnails", "", 500},
+    {1, Agent::Claude, SessionState::NeedsYou, "Fix flaky checkout test", "perm", 42},
+    {2, Agent::Codex, SessionState::NeedsYou, "Rate-limit the public API", "?", 190},
+    {3, Agent::Claude, SessionState::Done, "Write release notes", "", 720},
+    {4, Agent::Claude, SessionState::Working, "Desk clock firmware", "Bash", 65},
+    {5, Agent::Codex, SessionState::Working, "Migrate image thumbnails to WebP", "", 500},
 };
 
-const char* const kNewNames[] = {"maecenas-4e", "Cabinet new look feature flag", "landing-copy-v2",
-                                 "Миграция базы данных", "auth-evidence-review"};
+const char* const kNewNames[] = {"Onboarding copy pass", "Dark mode for settings",
+                                 "landing-page-v2", "Миграция базы данных", "Audit login flow"};
 
 }  // namespace
 
@@ -159,7 +159,7 @@ void Scenario::setState(std::uint32_t id, SessionState state, const char* detail
     sessions_.push_back(Live{});
     live = &sessions_.back();
     live->session.id = domain::SessionId{id};
-    live->session.name = "servarium-05";
+    live->session.name = "Fix flaky checkout test";
   }
   if (live->session.state != state) {
     live->since = now;

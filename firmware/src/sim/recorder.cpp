@@ -26,13 +26,17 @@ void Recorder::still(ui::Canvas& canvas, const std::string& path) {
   }
 }
 
-void Recorder::start(const std::string& gifPath, int fps) {
+void Recorder::start(const std::string& path, int fps) {
   stop();
+  const std::string input = "ffmpeg -loglevel error -y -f rawvideo -pix_fmt rgb24 -s 320x170 -r " +
+                            std::to_string(fps) + " -i - -vf '" + kScale;
+  const bool mp4 = path.size() > 4 && path.substr(path.size() - 4) == ".mp4";
   const std::string command =
-      "ffmpeg -loglevel error -y -f rawvideo -pix_fmt rgb24 -s 320x170 -r " + std::to_string(fps) +
-      " -i - -vf '" + kScale +
-      ",split[a][b];[a]palettegen=stats_mode=full[p];[b][p]paletteuse=dither=none' '" + gifPath +
-      "'";
+      mp4 ? input + "' -c:v libx264 -preset slow -crf 16 -pix_fmt yuv420p -movflags +faststart '" +
+                path + "'"
+          : input +
+                ",split[a][b];[a]palettegen=stats_mode=full[p];[b][p]paletteuse=dither=none' '" +
+                path + "'";
   pipe_ = popen(command.c_str(), "w");
 }
 

@@ -31,7 +31,7 @@ struct Options {
 /// Parses:
 ///   --no-demo
 ///   --slowmo F                  simulated speed, e.g. 0.25
-///   --gif PATH --seconds N      record N simulated seconds, then quit
+///   --gif PATH --seconds N      record N simulated seconds (.gif or .mp4), then quit
 ///   --shots DIR --at T1,T2,...  PNG stills at simulated ms, then quit
 ///   --time HH:MM                pretend it's this time of day (night mode is 23:00–08:00)
 ///   --script "T:act,..."        act ∈ up, down, longup, longdown, add, remove, needs, pause,
