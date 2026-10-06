@@ -16,20 +16,28 @@ namespace desk::esp32 {
 /// smooth where an 8-bit PWM visibly stairs.
 class PwmBacklight final : public app::Backlight {
  public:
-  static constexpr std::uint32_t kFrequency = 12'000;  // well above flicker, inside 80 MHz / 2¹²
+  // LEDC runs from the 40 MHz crystal here: 40 MHz / 2¹² leaves at most ~9.7 kHz at 12 bits.
+  static constexpr std::uint32_t kFrequency = 8'000;
   static constexpr std::uint8_t kBits = 12;
   static constexpr std::uint32_t kMaxDuty = (1u << kBits) - 1;
   static constexpr float kFloor = 0.04f;  // lightness at level 0: dim, never fully dark
 
-  void begin() {
-    ledcAttach(board::kTftBacklight, kFrequency, kBits);
+  /// Returns false if the PWM couldn't be set up; the backlight is then simply left on.
+  bool begin() {
+    if (!ledcAttach(board::kTftBacklight, kFrequency, kBits)) {
+      pinMode(board::kTftBacklight, OUTPUT);
+      digitalWrite(board::kTftBacklight, HIGH);
+      return false;
+    }
     ledcWrite(board::kTftBacklight, 0);
+    attached_ = true;
+    return true;
   }
 
   void set(float level) override {
     const float lightness = kFloor + (1.0f - kFloor) * std::clamp(level, 0.0f, 1.0f);
     const auto duty = static_cast<std::uint32_t>(std::lround(luminance(lightness) * kMaxDuty));
-    if (duty != last_) {
+    if (attached_ && duty != last_) {
       ledcWrite(board::kTftBacklight, duty);
       last_ = duty;
     }
@@ -42,6 +50,7 @@ class PwmBacklight final : public app::Backlight {
   }
 
   std::uint32_t last_ = UINT32_MAX;
+  bool attached_ = false;
 };
 
 }  // namespace desk::esp32

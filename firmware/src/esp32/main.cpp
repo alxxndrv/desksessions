@@ -45,7 +45,7 @@ protocol::Reassembler reassembler;
 class SettingsStore {
  public:
   app::DeviceSettings load() {
-    prefs_.begin("desk", true);
+    prefs_.begin("desk", false);  // read-write so the namespace exists on first boot
     app::DeviceSettings settings{.flipScreen = prefs_.getBool("flip", false),
                                  .swapButtons = prefs_.getBool("swap", false)};
     prefs_.end();
