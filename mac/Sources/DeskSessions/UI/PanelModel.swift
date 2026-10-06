@@ -10,6 +10,8 @@ final class PanelModel {
         didSet { keepSelectionValid() }
     }
     var selectedID: UInt32?
+    /// Drives the panel's spring in and out.
+    var presented = false
 
     let monitor: SessionMonitor
     let link: ClockLink

@@ -19,14 +19,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        statusItem = StatusItemController { [weak self] in
-            guard let self else { return }
-            panel.toggle(anchor: statusItem.button)
-        }
+        statusItem = StatusItemController(
+            onOpen: { [weak self] anchor in self?.panel.show(anchor: anchor) },
+            onClose: { [weak self] in self?.panel.hide() })
         panelModel = PanelModel(monitor: monitor, link: link)
         panelModel.onJump = { [weak self] session in self?.jump(to: session) }
         panelModel.onSettings = { [weak self] in self?.openSettings() }
         panel = PanelController(model: panelModel)
+        panel.onHide = { [weak self] in self?.statusItem.endSession() }
 
         hotKey = HotKey { [weak self] in self?.panel.toggle(anchor: nil) }
         hotKey.register(settings.hotKey)

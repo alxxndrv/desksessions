@@ -35,6 +35,9 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     var isVisible: Bool { panel.isVisible }
 
+    /// Called after the panel closes for any reason.
+    var onHide: (() -> Void)?
+
     func toggle(anchor: NSStatusBarButton?) {
         isVisible ? hide() : show(anchor: anchor)
     }
@@ -42,49 +45,34 @@ final class PanelController: NSObject, NSWindowDelegate {
     /// Drops from the menu-bar icon when there is one to anchor to, otherwise centres on screen.
     func show(anchor: NSStatusBarButton?) {
         model.reset()
-        panel.layoutIfNeeded()
-        let size = panel.contentView?.fittingSize ?? NSSize(width: 560, height: 420)
+        model.presented = false
+        let measured = panel.contentView?.fittingSize ?? .zero
+        let size = measured.width > 10 && measured.height > 10 ? measured : NSSize(width: 560, height: 420)
         let screen = anchor?.window?.screen ?? NSScreen.main ?? NSScreen.screens[0]
+        let visible = screen.visibleFrame
         var origin: NSPoint
         if let anchor, let window = anchor.window {
             let frame = window.convertToScreen(anchor.convert(anchor.bounds, to: nil))
             origin = NSPoint(x: frame.midX - size.width / 2, y: frame.minY - size.height - 6)
         } else {
-            let visible = screen.visibleFrame
-            origin = NSPoint(x: visible.midX - size.width / 2, y: visible.midY + visible.height * 0.12)
+            origin = NSPoint(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2 + visible.height * 0.12)
         }
-        origin.x = min(max(origin.x, screen.visibleFrame.minX + 8), screen.visibleFrame.maxX - size.width - 8)
-        panel.setFrame(NSRect(origin: origin, size: size), display: true)
-
-        // Spring in: a touch small and transparent, settling to full size.
-        panel.alphaValue = 0
+        origin.x = min(max(origin.x, visible.minX + 8), visible.maxX - size.width - 8)
+        panel.setFrame(NSRect(origin: origin, size: size), display: false)
+        panel.alphaValue = 1
         panel.makeKeyAndOrderFront(nil)
-        if let layer = panel.contentView?.layer {
-            layer.anchorPoint = CGPoint(x: 0.5, y: 1)
-            layer.position = CGPoint(x: size.width / 2, y: size.height)
-            let spring = CASpringAnimation(keyPath: "transform.scale")
-            spring.fromValue = 0.94
-            spring.toValue = 1
-            spring.mass = 1
-            spring.stiffness = 158  // SwiftUI .snappy: duration 0.5, bounce 0.15
-            spring.damping = 21.4
-            spring.duration = spring.settlingDuration
-            layer.add(spring, forKey: "drop")
-        }
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.16
-            panel.animator().alphaValue = 1
-        }
+        // The content springs in (SwiftUI .snappy) on the next pass.
+        DispatchQueue.main.async { [model] in model.presented = true }
     }
 
     func hide() {
-        guard panel.isVisible else { return }
-        NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.12
-            panel.animator().alphaValue = 0
-        }, completionHandler: { [panel] in
-            panel.orderOut(nil)
-        })
+        guard panel.isVisible, model.presented else { return }
+        model.presented = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) { [weak self] in
+            guard let self, !self.model.presented else { return }
+            self.panel.orderOut(nil)
+            self.onHide?()
+        }
     }
 
     func windowDidResignKey(_ notification: Notification) {

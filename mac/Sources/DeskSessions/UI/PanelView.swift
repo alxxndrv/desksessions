@@ -18,7 +18,11 @@ struct PanelView: View {
         }
         .frame(width: 560)
         .glassEffect(.regular, in: .rect(cornerRadius: 16))
-        .onAppear { searchFocused = true }
+        .scaleEffect(model.presented ? 1 : 0.94, anchor: .top)
+        .opacity(model.presented ? 1 : 0)
+        .animation(model.presented ? .snappy : .easeIn(duration: 0.14), value: model.presented)
+        .padding(12)  // room for the glass shadow inside the borderless panel
+        .onChange(of: model.presented) { _, shown in if shown { searchFocused = true } }
     }
 
     private var searchField: some View {
