@@ -15,9 +15,12 @@ namespace desk::ui {
 /// Draws one frame of the app into a full-screen sprite.
 class Renderer {
  public:
-  explicit Renderer(Canvas& canvas) : canvas_(canvas) {}
+  explicit Renderer(Canvas& canvas) : target_(&canvas) {}
 
+  /// Draws into the canvas given at construction.
   void draw(const app::DeskApp& app, Instant now);
+  /// Draws into `target` and keeps using it (for double buffering).
+  void draw(const app::DeskApp& app, Instant now, Canvas& target);
 
  private:
   void drawList(const app::DeskApp& app, Instant now);
@@ -34,7 +37,9 @@ class Renderer {
   /// Parsed on first use, after the platform's heap is up.
   const Fonts& fonts();
 
-  Canvas& canvas_;
+  Canvas& canvas() { return *target_; }
+
+  Canvas* target_;
   std::optional<Fonts> fonts_;
   app::Button lastHold_ = app::Button::Aux;
 };

@@ -15,8 +15,8 @@ class LgfxT190 : public lgfx::LGFX_Device {
       auto cfg = bus_.config();
       cfg.spi_host = SPI2_HOST;
       cfg.spi_mode = 0;
-      cfg.freq_write = 40'000'000;
-      cfg.freq_read = 10'000'000;
+      cfg.freq_write = 80'000'000;  // a full frame in ~11 ms, faster than the panel scans
+      cfg.freq_read = 6'000'000;  // ST7789 reads top out around 6.6 MHz
       cfg.spi_3wire = true;
       cfg.use_lock = true;
       cfg.dma_channel = SPI_DMA_CH_AUTO;
@@ -39,7 +39,7 @@ class LgfxT190 : public lgfx::LGFX_Device {
       cfg.offset_x = 35;
       cfg.offset_y = 0;
       cfg.offset_rotation = 0;
-      cfg.readable = false;
+      cfg.readable = true;  // for the scanline read that stands in for the missing TE pin
       cfg.invert = true;
       cfg.rgb_order = false;
       cfg.dlen_16bit = false;

@@ -14,6 +14,7 @@
 #include "ble_link.hpp"
 #include "board.hpp"
 #include "desk/app/desk_app.hpp"
+#include "frame_pump.hpp"
 #ifdef DESK_DEMO
 #include "desk/demo/scenario.hpp"
 #endif
@@ -29,7 +30,7 @@ using namespace desk;
 Instant monotonicNow() { return Instant{Millis{esp_timer_get_time() / 1000}}; }
 
 LgfxT190 lcd;
-ui::Canvas canvas(&lcd);
+esp32::FramePump frames(lcd);
 esp32::PwmBacklight backlight;
 #ifdef DESK_DEMO
 demo::Scenario scenario(monotonicNow());
@@ -38,7 +39,7 @@ app::DeskApp deskApp(scenario, backlight);
 esp32::BleLink macLink;
 app::DeskApp deskApp(macLink, backlight);
 #endif
-ui::Renderer renderer(canvas);
+ui::Renderer renderer(frames.back());
 protocol::Reassembler reassembler;
 
 /// Device settings survive reboots in NVS, so the picture is the right way up before the Mac
@@ -75,7 +76,8 @@ constexpr Millis kSaveAfter{2'000};  // a slider being dragged shouldn't write f
 void applyDisplaySettings(Instant now) {
   if (deskApp.settings() != applied) {
     if (applied.flipScreen != deskApp.settings().flipScreen) {
-      lcd.setRotation(deskApp.settings().flipScreen ? board::kRotationFlipped : board::kRotation);
+      frames.setRotation(deskApp.settings().flipScreen ? board::kCanvasRotationFlipped
+                                                       : board::kCanvasRotation);
     }
     applied = deskApp.settings();
     unsavedSince = now;
@@ -85,9 +87,6 @@ void applyDisplaySettings(Instant now) {
     unsavedSince.reset();
   }
 }
-
-constexpr Millis kFrame{16};
-Instant nextFrame;
 
 #ifdef DESK_DEMO
 void drainLink(Instant now) {
@@ -116,6 +115,8 @@ void drainLink(Instant now) {
 }  // namespace
 
 void setup() {
+  Serial.begin(115200);
+  delay(1500);  // let the USB serial port come up so the boot report is visible
   pinMode(board::kVextEnable, OUTPUT);
   digitalWrite(board::kVextEnable, HIGH);
   pinMode(board::kTftPower, OUTPUT);
@@ -128,11 +129,9 @@ void setup() {
   lcd.init();
   applied = settingsStore.load();
   deskApp.applySettings(applied);
-  lcd.setRotation(applied.flipScreen ? board::kRotationFlipped : board::kRotation);
+  lcd.setRotation(0);  // native portrait: writes follow the panel's scan
   lcd.fillScreen(TFT_BLACK);
-  canvas.setPsram(false);  // internal RAM so the frame can go out by DMA
-  canvas.setColorDepth(16);
-  canvas.createSprite(320, 170);
+  frames.begin(applied.flipScreen ? board::kCanvasRotationFlipped : board::kCanvasRotation);
 
 #ifdef DESK_DEMO
   deskApp.linkChanged({.kind = app::LinkEvent::Kind::Connected}, monotonicNow());
@@ -140,7 +139,6 @@ void setup() {
 #else
   macLink.begin();
 #endif
-  nextFrame = monotonicNow();
 }
 
 void loop() {
@@ -150,14 +148,7 @@ void loop() {
                 .auxDown = digitalRead(board::kAuxButton) == LOW},
                now);
   applyDisplaySettings(now);
-  renderer.draw(deskApp, now);
-  canvas.pushSprite(0, 0);
-
-  nextFrame = nextFrame + kFrame;
-  const Millis wait = nextFrame - monotonicNow();
-  if (wait > Millis{0}) {
-    delay(static_cast<std::uint32_t>(wait.count()));
-  } else {
-    nextFrame = monotonicNow();  // fell behind: don't try to catch up
-  }
+  frames.beginFrame();
+  renderer.draw(deskApp, now, frames.back());
+  frames.present();  // paces the loop to the panel's refresh
 }

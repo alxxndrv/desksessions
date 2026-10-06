@@ -116,9 +116,14 @@ const Fonts& Renderer::fonts() {
   return *fonts_;
 }
 
+void Renderer::draw(const app::DeskApp& app, Instant now, Canvas& target) {
+  target_ = &target;
+  draw(app, now);
+}
+
 void Renderer::draw(const app::DeskApp& app, Instant now) {
   const scene::StageScene& stage = app.stage();
-  canvas_.fillScreen(hex(theme::kBackground));
+  canvas().fillScreen(hex(theme::kBackground));
 
   if (stage.pairing() < 0.999f) {
     if (stage.quiet() < 0.999f && stage.asleep() < 0.999f) {
@@ -142,16 +147,16 @@ void Renderer::drawList(const app::DeskApp& app, Instant now) {
   const scene::BoardScene& scene = app.scene();
   const float originY =
       layout::kHeaderHeight - scene.scroll() + scene.nudgeOffset() + app.stage().wake();
-  canvas_.setClipRect(0, px(layout::kHeaderHeight), px(layout::kScreenWidth),
-                      px(layout::kViewportHeight));
+  canvas().setClipRect(0, px(layout::kHeaderHeight), px(layout::kScreenWidth),
+                       px(layout::kViewportHeight));
 
   // Highlight under the selected row, with the long-press fill sweeping across it.
   const float highlight =
       scene.highlightOpacity() * (1.0f - app.stage().offline()) * (1.0f - app.stage().asleep());
   if (highlight > 0.01f) {
     const int top = px(originY + scene.highlightY()) + 2;
-    canvas_.fillSmoothRoundRect(4, top, 312, 26, 8,
-                                hex(mix(theme::kBackground, theme::kSurface, highlight)));
+    canvas().fillSmoothRoundRect(4, top, 312, 26, 8,
+                                 hex(mix(theme::kBackground, theme::kSurface, highlight)));
     if (const auto hold = app.gestures().hold(now)) {
       lastHold_ = hold->button;
     }
@@ -159,7 +164,7 @@ void Renderer::drawList(const app::DeskApp& app, Instant now) {
     if (fill > 0.005f) {
       const Rgb tint = lastHold_ == app::Button::Boot ? theme::kJump : theme::kDone;
       const int width = std::max(16, px(312.0f * fill));
-      canvas_.fillSmoothRoundRect(
+      canvas().fillSmoothRoundRect(
           4, top, width, 26, 8, hex(mix(theme::kSurface, tint, 0.28f * std::min(1.0f, fill * 3))));
     }
   }
@@ -188,10 +193,10 @@ void Renderer::drawList(const app::DeskApp& app, Instant now) {
     const float thumb = std::max(12.0f, layout::kViewportHeight * ratio);
     const float travel = layout::kViewportHeight - thumb;
     const float pos = scene.scroll() / (content - layout::kViewportHeight);
-    canvas_.fillSmoothRoundRect(316, px(layout::kHeaderHeight + travel * pos) + 2, 2, px(thumb) - 4,
-                                1, hex(theme::kTextFaint));
+    canvas().fillSmoothRoundRect(316, px(layout::kHeaderHeight + travel * pos) + 2, 2,
+                                 px(thumb) - 4, 1, hex(theme::kTextFaint));
   }
-  canvas_.clearClipRect();
+  canvas().clearClipRect();
 }
 
 void Renderer::drawRow(const app::DeskApp& app, const scene::RowSlot& slot, Instant now) {
@@ -220,8 +225,8 @@ void Renderer::drawRow(const app::DeskApp& app, const scene::RowSlot& slot, Inst
   const float lift = std::clamp(slot.lift.value(), 0.0f, 1.0f);
   if (lift > 0.01f) {
     const Rgb base = selected ? theme::kSurface : theme::kBackground;
-    canvas_.fillSmoothRoundRect(px(left + 4), px(top + 2), 312, 26, 8,
-                                fade(mix(base, theme::kLifted, lift)));
+    canvas().fillSmoothRoundRect(px(left + 4), px(top + 2), 312, 26, 8,
+                                 fade(mix(base, theme::kLifted, lift)));
   }
 
   // State bar: crossfades between states; NEEDS YOU breathes.
@@ -231,8 +236,8 @@ void Renderer::drawRow(const app::DeskApp& app, const scene::RowSlot& slot, Inst
     bar = mix(mix(theme::kBackground, bar, 0.45f), bar, anim::breathe(now - slot.stateSince));
   }
   const float barHeight = 16.0f * scale;
-  canvas_.fillSmoothRoundRect(px(left + kBarX), px(centerY - barHeight / 2), 4, px(barHeight), 2,
-                              fade(bar));
+  canvas().fillSmoothRoundRect(px(left + kBarX), px(centerY - barHeight / 2), 4, px(barHeight), 2,
+                               fade(bar));
 
   // Glyph: spins while working, hops when it needs you, pops into a check when done.
   const Millis inState = now - slot.stateSince;
@@ -240,7 +245,7 @@ void Renderer::drawRow(const app::DeskApp& app, const scene::RowSlot& slot, Inst
   const float glyphX = left + kGlyphX;
   if (session.state == SessionState::Done) {
     const float r = 6.5f * std::max(0.0f, slot.glyphScale.value()) * scale;
-    glyphs::check(canvas_, glyphX, centerY, r, fade(theme::kDone));
+    glyphs::check(canvas(), glyphX, centerY, r, fade(theme::kDone));
   } else {
     float angle = 0.0f;
     float glyphY = centerY;
@@ -253,59 +258,59 @@ void Renderer::drawRow(const app::DeskApp& app, const scene::RowSlot& slot, Inst
       r *= hop.squash;
     }
     if (session.agent == domain::Agent::Claude) {
-      glyphs::sparkle(canvas_, glyphX, glyphY, r, angle, agentColor);
+      glyphs::sparkle(canvas(), glyphX, glyphY, r, angle, agentColor);
     } else {
-      glyphs::hexagon(canvas_, glyphX, glyphY, r * 0.85f, angle / 2.0f, agentColor);
+      glyphs::hexagon(canvas(), glyphX, glyphY, r * 0.85f, angle / 2.0f, agentColor);
     }
   }
 
-  canvas_.setTextDatum(textdatum_t::middle_left);
-  canvas_.setTextSize(scale);
+  canvas().setTextDatum(textdatum_t::middle_left);
+  canvas().setTextSize(scale);
 
   // Name: ellipsised, or scrolling through when selected and too long.
-  canvas_.setFont(fonts().name());
-  const float nameWidth = static_cast<float>(canvas_.textWidth(session.name.c_str()));
-  canvas_.setTextColor(fade(theme::kText));
+  canvas().setFont(fonts().name());
+  const float nameWidth = static_cast<float>(canvas().textWidth(session.name.c_str()));
+  canvas().setTextColor(fade(theme::kText));
   if (selected && nameWidth > kNameWidth) {
     const float offset = anim::marqueeOffset(nameWidth - kNameWidth, now - scene.selectedSince());
     const int clipTop = std::max(px(top), px(layout::kHeaderHeight));
-    canvas_.setClipRect(px(left + kNameX), clipTop, px(kNameWidth), px(layout::kRowHeight));
-    canvas_.drawString(session.name.c_str(), px(left + kNameX - offset), px(centerY));
-    canvas_.setClipRect(0, px(layout::kHeaderHeight), px(layout::kScreenWidth),
-                        px(layout::kViewportHeight));
+    canvas().setClipRect(px(left + kNameX), clipTop, px(kNameWidth), px(layout::kRowHeight));
+    canvas().drawString(session.name.c_str(), px(left + kNameX - offset), px(centerY));
+    canvas().setClipRect(0, px(layout::kHeaderHeight), px(layout::kScreenWidth),
+                         px(layout::kViewportHeight));
   } else {
     char name[domain::kMaxNameBytes + 4];
-    fitText(canvas_, session.name.c_str(), kNameWidth, name, sizeof(name));
-    canvas_.drawString(name, px(left + kNameX), px(centerY));
+    fitText(canvas(), session.name.c_str(), kNameWidth, name, sizeof(name));
+    canvas().drawString(name, px(left + kNameX), px(centerY));
   }
 
   // Detail and time.
-  canvas_.setFont(fonts().small());
-  canvas_.setTextColor(fade(theme::kTextDim));
+  canvas().setFont(fonts().small());
+  canvas().setTextColor(fade(theme::kTextDim));
   char detail[domain::kMaxDetailBytes + 8];
   if (session.subagents > 0) {
     std::snprintf(detail, sizeof(detail), "×%u", static_cast<unsigned>(session.subagents));
   } else {
     std::snprintf(detail, sizeof(detail), "%s", session.detail.c_str());
   }
-  canvas_.drawString(detail, px(left + kDetailX), px(centerY));
+  canvas().drawString(detail, px(left + kDetailX), px(centerY));
 
   char time[12];
   formatDuration(time, sizeof(time), app.board().timeInState(session, now), session.state);
-  canvas_.setTextDatum(textdatum_t::middle_right);
-  canvas_.setTextColor(fade(theme::kTextFaint));
-  canvas_.drawString(time, px(left + kTimeRight), px(centerY));
-  canvas_.setTextSize(1.0f);
+  canvas().setTextDatum(textdatum_t::middle_right);
+  canvas().setTextColor(fade(theme::kTextFaint));
+  canvas().drawString(time, px(left + kTimeRight), px(centerY));
+  canvas().setTextSize(1.0f);
 }
 
 void Renderer::drawHeader(const app::DeskApp& app, Instant now,
                           std::optional<app::WallTime> wallTime) {
   const scene::BoardScene& scene = app.scene();
-  canvas_.fillRect(0, 0, px(layout::kScreenWidth), px(layout::kHeaderHeight),
-                   hex(theme::kBackground));
+  canvas().fillRect(0, 0, px(layout::kScreenWidth), px(layout::kHeaderHeight),
+                    hex(theme::kBackground));
   if (scene.scroll() > 0.5f && app.stage().quiet() < 0.5f) {
-    canvas_.drawFastHLine(0, px(layout::kHeaderHeight) - 1, px(layout::kScreenWidth),
-                          hex(theme::kHairline));
+    canvas().drawFastHLine(0, px(layout::kHeaderHeight) - 1, px(layout::kScreenWidth),
+                           hex(theme::kHairline));
   }
 
   // Counters lift away and fade as the "Mac asleep" status rises in to replace them.
@@ -321,17 +326,17 @@ void Renderer::drawHeader(const app::DeskApp& app, Instant now,
     char clock[6];
     std::snprintf(clock, sizeof(clock), "%02u:%02u", static_cast<unsigned>(wallTime->hour),
                   static_cast<unsigned>(wallTime->minute));
-    canvas_.setFont(fonts().small());
-    canvas_.setTextDatum(textdatum_t::middle_right);
-    canvas_.setTextColor(hex(theme::kTextDim));
-    canvas_.drawString(clock, px(layout::kScreenWidth) - 8, px(layout::kHeaderHeight / 2.0f));
+    canvas().setFont(fonts().small());
+    canvas().setTextDatum(textdatum_t::middle_right);
+    canvas().setTextColor(hex(theme::kTextDim));
+    canvas().drawString(clock, px(layout::kScreenWidth) - 8, px(layout::kHeaderHeight / 2.0f));
   }
 }
 
 void Renderer::drawCounters(const app::DeskApp& app, float offsetY, float alpha) {
   const scene::BoardScene& scene = app.scene();
-  canvas_.setFont(fonts().label());
-  canvas_.setTextDatum(textdatum_t::middle_left);
+  canvas().setFont(fonts().label());
+  canvas().setTextDatum(textdatum_t::middle_left);
   const float midY = layout::kHeaderHeight / 2.0f + offsetY;
   const float lineHeight = 14.0f;
 
@@ -347,53 +352,53 @@ void Renderer::drawCounters(const app::DeskApp& app, float offsetY, float alpha)
     const bool any = value > 0.05f;
     const auto faded = [&](Rgb c) { return hex(mix(theme::kBackground, c, alpha)); };
     const Rgb dot = any ? theme::stateColor(counter.state) : theme::kTextFaint;
-    canvas_.dot(x + 3.0f, midY, 3.0f, faded(dot));
+    canvas().dot(x + 3.0f, midY, 3.0f, faded(dot));
 
     // Odometer: the old number rolls up and out as the new one rolls in.
     const float whole = std::floor(value);
     const float frac = value - whole;
     const int digitX = px(x + 11.0f);
-    canvas_.setClipRect(digitX, 2, 18, px(layout::kHeaderHeight) - 4);
-    canvas_.setTextColor(faded(any ? theme::kText : theme::kTextFaint));
+    canvas().setClipRect(digitX, 2, 18, px(layout::kHeaderHeight) - 4);
+    canvas().setTextColor(faded(any ? theme::kText : theme::kTextFaint));
     char digits[4];
     std::snprintf(digits, sizeof(digits), "%d", static_cast<int>(whole));
-    canvas_.drawString(digits, digitX, px(midY - frac * lineHeight));
+    canvas().drawString(digits, digitX, px(midY - frac * lineHeight));
     if (frac > 0.01f) {
       std::snprintf(digits, sizeof(digits), "%d", static_cast<int>(whole) + 1);
-      canvas_.drawString(digits, digitX, px(midY + (1.0f - frac) * lineHeight));
+      canvas().drawString(digits, digitX, px(midY + (1.0f - frac) * lineHeight));
     }
-    canvas_.clearClipRect();
+    canvas().clearClipRect();
 
-    canvas_.setTextColor(faded(theme::kTextDim));
-    const int labelX = digitX + std::max(8, static_cast<int>(canvas_.textWidth(digits))) + 3;
-    canvas_.drawString(counter.label, labelX, px(midY));
-    x = static_cast<float>(labelX + canvas_.textWidth(counter.label)) + 12.0f;
+    canvas().setTextColor(faded(theme::kTextDim));
+    const int labelX = digitX + std::max(8, static_cast<int>(canvas().textWidth(digits))) + 3;
+    canvas().drawString(counter.label, labelX, px(midY));
+    x = static_cast<float>(labelX + canvas().textWidth(counter.label)) + 12.0f;
   }
 }
 
 void Renderer::drawAwayStatus(Instant now, float offsetY, float alpha) {
   const float midY = layout::kHeaderHeight / 2.0f + offsetY;
-  canvas_.dot(11.0f, midY, 3.0f, hex(mix(theme::kBackground, theme::kTextFaint, alpha)));
-  canvas_.setFont(fonts().small());
-  canvas_.setTextDatum(textdatum_t::middle_left);
-  canvas_.setTextColor(hex(mix(theme::kBackground, theme::kTextDim, alpha)));
+  canvas().dot(11.0f, midY, 3.0f, hex(mix(theme::kBackground, theme::kTextFaint, alpha)));
+  canvas().setFont(fonts().small());
+  canvas().setTextDatum(textdatum_t::middle_left);
+  canvas().setTextColor(hex(mix(theme::kBackground, theme::kTextDim, alpha)));
   const char* label = "Mac asleep";
-  canvas_.drawString(label, 19, px(midY));
-  drawZzz(static_cast<float>(19 + canvas_.textWidth(label)) + 6.0f, midY + 2.0f, now, alpha);
+  canvas().drawString(label, 19, px(midY));
+  drawZzz(static_cast<float>(19 + canvas().textWidth(label)) + 6.0f, midY + 2.0f, now, alpha);
 }
 
 void Renderer::drawZzz(float x, float y, Instant now, float strength) {
   // Three z's drifting up and to the right, each fading in and out on its own beat.
-  canvas_.setFont(fonts().small());
-  canvas_.setTextDatum(textdatum_t::middle_center);
+  canvas().setFont(fonts().small());
+  canvas().setTextDatum(textdatum_t::middle_center);
   for (int k = 0; k < 3; ++k) {
     const float p = phase(now.sinceBoot + Millis{k * 800}, Millis{2'400});
     const float alpha = std::sin(kPi * p) * strength;
-    canvas_.setTextSize(0.7f + 0.4f * p);
-    canvas_.setTextColor(hex(mix(theme::kBackground, theme::kTextDim, alpha)));
-    canvas_.drawString("z", px(x + 7.0f * p), px(y - 9.0f * p));
+    canvas().setTextSize(0.7f + 0.4f * p);
+    canvas().setTextColor(hex(mix(theme::kBackground, theme::kTextDim, alpha)));
+    canvas().drawString("z", px(x + 7.0f * p), px(y - 9.0f * p));
   }
-  canvas_.setTextSize(1.0f);
+  canvas().setTextSize(1.0f);
 }
 
 void Renderer::drawPortHole(float progress) {
@@ -405,8 +410,8 @@ void Renderer::drawPortHole(float progress) {
   constexpr float kCy = layout::kHeaderHeight + layout::kViewportHeight / 2.0f;
   constexpr float kFar = 190.0f;
   const float radius = kFar * (1.0f - anim::ease(anim::Curve::EaseInOut, progress));
-  canvas_.fillArc(px(kCx), px(kCy), std::max(0, px(radius)), px(kFar), 0.0f, 360.0f,
-                  hex(theme::kBackground));
+  canvas().fillArc(px(kCx), px(kCy), std::max(0, px(radius)), px(kFar), 0.0f, 360.0f,
+                   hex(theme::kBackground));
 }
 
 void Renderer::drawQuiet(const app::DeskApp& app, Instant now) {
@@ -430,12 +435,12 @@ void Renderer::drawQuiet(const app::DeskApp& app, Instant now) {
   face.eyesOpen = blink * (1.0f - 0.55f * stage.offline());
   face.smile = 1.0f - 0.6f * stage.offline();
   face.squash = 1.0f + 0.035f * breath;
-  glyphs::face(canvas_, kCx, kCy, radius, face, hex(theme::kSurface), hex(theme::kTextDim));
+  glyphs::face(canvas(), kCx, kCy, radius, face, hex(theme::kSurface), hex(theme::kTextDim));
 
-  canvas_.setFont(fonts().name());
-  canvas_.setTextDatum(textdatum_t::middle_center);
-  canvas_.setTextColor(hex(mix(theme::kBackground, theme::kTextDim, stage.quiet())));
-  canvas_.drawString("All quiet", px(kCx), px(kCy + 40.0f + 4.0f * (1.0f - stage.quiet())));
+  canvas().setFont(fonts().name());
+  canvas().setTextDatum(textdatum_t::middle_center);
+  canvas().setTextColor(hex(mix(theme::kBackground, theme::kTextDim, stage.quiet())));
+  canvas().drawString("All quiet", px(kCx), px(kCy + 40.0f + 4.0f * (1.0f - stage.quiet())));
   if (stage.offline() > 0.01f) {
     drawZzz(kCx + radius + 6.0f, kCy - radius * 0.6f, now, stage.offline());
   }
@@ -455,7 +460,7 @@ void Renderer::drawAsleep(const app::DeskApp& app, Instant now) {
   face.smile = 0.35f;
   face.squash = 1.0f + 0.05f * breath;
   const float radius = 20.0f * anim::ease(anim::Curve::EaseOut, appear);
-  glyphs::face(canvas_, kCx, kCy, radius, face,
+  glyphs::face(canvas(), kCx, kCy, radius, face,
                hex(mix(theme::kBackground, theme::kSurface, appear)),
                hex(mix(theme::kBackground, theme::kTextFaint, appear)));
   drawZzz(kCx + radius + 6.0f, kCy - radius * 0.6f, now, appear);
@@ -464,9 +469,9 @@ void Renderer::drawAsleep(const app::DeskApp& app, Instant now) {
 void Renderer::drawPairing(const app::DeskApp& app, Instant now) {
   const scene::StageScene& stage = app.stage();
   const float x = (1.0f - stage.pairing()) * layout::kScreenWidth;
-  canvas_.fillRect(px(x), 0, px(layout::kScreenWidth) + 8, px(layout::kScreenHeight),
-                   hex(theme::kBackground));
-  canvas_.drawFastVLine(px(x), 0, px(layout::kScreenHeight), hex(theme::kHairline));
+  canvas().fillRect(px(x), 0, px(layout::kScreenWidth) + 8, px(layout::kScreenHeight),
+                    hex(theme::kBackground));
+  canvas().drawFastVLine(px(x), 0, px(layout::kScreenHeight), hex(theme::kHairline));
 
   const float blinkPhase = phase(now.sinceBoot, Millis{3'600});
   glyphs::Face face;
@@ -474,15 +479,15 @@ void Renderer::drawPairing(const app::DeskApp& app, Instant now) {
   face.squash = 1.0f + 0.03f * std::sin(2.0f * kPi * phase(now.sinceBoot, Millis{2'800}));
 
   if (app.phase() == app::Phase::Pairing) {
-    canvas_.setFont(fonts().small());
-    canvas_.setTextDatum(textdatum_t::middle_center);
-    canvas_.setTextColor(hex(theme::kTextDim));
-    canvas_.drawString("Confirm this code on your Mac", px(x + 160.0f), 30);
+    canvas().setFont(fonts().small());
+    canvas().setTextDatum(textdatum_t::middle_center);
+    canvas().setTextColor(hex(theme::kTextDim));
+    canvas().drawString("Confirm this code on your Mac", px(x + 160.0f), 30);
 
     // Digits drop in one after another with a moook.
     char code[8];
     std::snprintf(code, sizeof(code), "%06u", static_cast<unsigned>(app.connection().passkey()));
-    canvas_.setFont(fonts().digits());
+    canvas().setFont(fonts().digits());
     const Millis since = now - stage.pairingSince();
     float digitX = x + 160.0f - 3.0f * 30.0f - 8.0f;
     for (int i = 0; i < 6; ++i) {
@@ -490,25 +495,25 @@ void Renderer::drawPairing(const app::DeskApp& app, Instant now) {
       const float dy = anim::moook(anim::kMoook, -24.0f, 0.0f, std::max(Millis{0}, local));
       const float alpha = progress(std::max(Millis{0}, local), Millis{120});
       const char digit[2] = {code[i], '\0'};
-      canvas_.setTextColor(hex(mix(theme::kBackground, theme::kText, alpha)));
-      canvas_.drawString(digit, px(digitX + 15.0f), px(92.0f + dy));
+      canvas().setTextColor(hex(mix(theme::kBackground, theme::kText, alpha)));
+      canvas().drawString(digit, px(digitX + 15.0f), px(92.0f + dy));
       digitX += 30.0f + (i == 2 ? 16.0f : 0.0f);
     }
-    canvas_.setFont(fonts().small());
-    canvas_.setTextColor(hex(theme::kTextFaint));
-    canvas_.drawString("Hold ↑ + ↓ for 5 s to start over", px(x + 160.0f), 150);
+    canvas().setFont(fonts().small());
+    canvas().setTextColor(hex(theme::kTextFaint));
+    canvas().drawString("Hold ↑ + ↓ for 5 s to start over", px(x + 160.0f), 150);
     return;
   }
 
-  glyphs::face(canvas_, x + 62.0f, 78.0f, 22.0f, face, hex(theme::kSurface), hex(theme::kTextDim));
-  canvas_.setTextDatum(textdatum_t::middle_left);
-  canvas_.setFont(fonts().name());
-  canvas_.setTextColor(hex(theme::kText));
-  canvas_.drawString("Let's pair", px(x + 112.0f), 62);
-  canvas_.setFont(fonts().small());
-  canvas_.setTextColor(hex(theme::kTextDim));
-  canvas_.drawString("On your Mac: desksessions", px(x + 112.0f), 86);
-  canvas_.drawString("→ Pair New Clock", px(x + 112.0f), 102);
+  glyphs::face(canvas(), x + 62.0f, 78.0f, 22.0f, face, hex(theme::kSurface), hex(theme::kTextDim));
+  canvas().setTextDatum(textdatum_t::middle_left);
+  canvas().setFont(fonts().name());
+  canvas().setTextColor(hex(theme::kText));
+  canvas().drawString("Let's pair", px(x + 112.0f), 62);
+  canvas().setFont(fonts().small());
+  canvas().setTextColor(hex(theme::kTextDim));
+  canvas().drawString("On your Mac: desksessions", px(x + 112.0f), 86);
+  canvas().drawString("→ Pair New Clock", px(x + 112.0f), 102);
 }
 
 }  // namespace desk::ui

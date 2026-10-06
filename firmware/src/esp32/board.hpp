@@ -18,8 +18,9 @@ inline constexpr std::uint8_t kTftCs = 39;
 inline constexpr std::uint8_t kTftReset = 40;
 inline constexpr std::uint8_t kTftBacklight = 17;  // HIGH = on, PWM for brightness
 
-/// Landscape, the right way up in the Moon Phase Clock case; the flipped setting uses the other.
-inline constexpr std::uint8_t kRotation = 3;
-inline constexpr std::uint8_t kRotationFlipped = 1;
+/// The panel is driven in its native portrait order (so writes follow its scan); the frame
+/// buffer itself is rotated to landscape. 3 is the right way up in the Moon Phase Clock case.
+inline constexpr std::uint8_t kCanvasRotation = 3;
+inline constexpr std::uint8_t kCanvasRotationFlipped = 1;
 
 }  // namespace desk::board
