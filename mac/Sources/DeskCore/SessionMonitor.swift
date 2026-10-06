@@ -22,6 +22,7 @@ public final class SessionMonitor {
 
     @ObservationIgnored private var tracker = SessionTracker()
     @ObservationIgnored private let threads = CodexThreads()
+    @ObservationIgnored private let titles = ClaudeTitles()
     @ObservationIgnored private var hookServer: HookServer?
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var ticks = 0
@@ -57,13 +58,24 @@ public final class SessionMonitor {
 
     private func poll() {
         let now = Date()
-        tracker.updateClaude(ClaudeSessions.read(), now: now, isAlive: Processes.isAlive,
+        tracker.updateClaude(ClaudeSessions.read().map(named), now: now, isAlive: Processes.isAlive,
                              home: Processes.cmuxHome(of:))
         ticks += 1
         if ticks % 10 == 0 {
             tracker.prune(now: now, isAlive: Processes.isAlive)
         }
         publish()
+    }
+
+    /// Swaps Claude's placeholder names ("servarium-05") for the session's real title.
+    private func named(_ record: ClaudeRecord) -> ClaudeRecord {
+        var record = record
+        // Your /rename beats everything; Claude's AI title only replaces a placeholder.
+        if let title = titles.title(sessionId: record.sessionId, cwd: record.cwd),
+           title.isCustom || record.hasPlaceholderName {
+            record.name = title.text
+        }
+        return record
     }
 
     private func received(_ line: Data) {

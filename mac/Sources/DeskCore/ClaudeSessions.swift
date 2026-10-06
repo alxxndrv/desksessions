@@ -11,9 +11,14 @@ public struct ClaudeRecord: Sendable, Equatable {
     public var kind: String
     /// When Claude says the status last changed.
     public var statusSince: Date?
+    /// Where `name` came from: "derived" is a placeholder (folder plus a random suffix).
+    public var nameSource: String?
+
+    public var hasPlaceholderName: Bool { nameSource == nil || nameSource == "derived" }
 
     public init(pid: Int32, sessionId: String, cwd: String, name: String, status: String,
-                waitingFor: String? = nil, kind: String = "interactive", statusSince: Date? = nil) {
+                waitingFor: String? = nil, kind: String = "interactive", statusSince: Date? = nil,
+                nameSource: String? = nil) {
         self.pid = pid
         self.sessionId = sessionId
         self.cwd = cwd
@@ -22,6 +27,7 @@ public struct ClaudeRecord: Sendable, Equatable {
         self.waitingFor = waitingFor
         self.kind = kind
         self.statusSince = statusSince
+        self.nameSource = nameSource
     }
 }
 
@@ -54,6 +60,7 @@ public enum ClaudeSessions {
             name: json["name"] as? String ?? URL(fileURLWithPath: cwd).lastPathComponent,
             status: status, waitingFor: json["waitingFor"] as? String,
             kind: json["kind"] as? String ?? "interactive",
-            statusSince: (json["statusUpdatedAt"] as? Double).map { Date(timeIntervalSince1970: $0 / 1000) })
+            statusSince: (json["statusUpdatedAt"] as? Double).map { Date(timeIntervalSince1970: $0 / 1000) },
+            nameSource: json["nameSource"] as? String)
     }
 }
