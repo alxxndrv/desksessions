@@ -116,7 +116,11 @@ void drainLink(Instant now) {
 
 void setup() {
   Serial.begin(115200);
-  delay(1500);  // let the USB serial port come up so the boot report is visible
+  // USB serial waits for the Mac to read; with nobody listening a print would stall the UI.
+  Serial.setTxTimeoutMs(0);
+#ifdef DESK_FRAME_STATS
+  delay(1500);  // let the port come up so the boot report is visible
+#endif
   pinMode(board::kVextEnable, OUTPUT);
   digitalWrite(board::kVextEnable, HIGH);
   pinMode(board::kTftPower, OUTPUT);

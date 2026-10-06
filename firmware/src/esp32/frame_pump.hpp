@@ -168,7 +168,11 @@ class FramePump {
     return climbs > 20 && wraps >= 1;
   }
 
+  /// Timing report over USB serial every 5 s, in the t190_stats build only.
   void report() {
+#ifndef DESK_FRAME_STATS
+    return;
+#endif
     const std::uint32_t now = millis();
     if (now - reportedAt_ < 5'000) {
       return;
