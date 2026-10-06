@@ -7,6 +7,7 @@
 namespace desk {
 
 /// The T190's 1.9" ST7789: a 240×320 controller showing a 170×320 window, on SPI2 with DMA.
+/// The backlight is driven separately (backlight_pwm.hpp) for finer dimming.
 class LgfxT190 : public lgfx::LGFX_Device {
  public:
   LgfxT190() {
@@ -45,22 +46,12 @@ class LgfxT190 : public lgfx::LGFX_Device {
       cfg.bus_shared = false;
       panel_.config(cfg);
     }
-    {
-      auto cfg = light_.config();
-      cfg.pin_bl = board::kTftBacklight;
-      cfg.invert = false;
-      cfg.freq = 12'000;
-      cfg.pwm_channel = 7;
-      light_.config(cfg);
-      panel_.setLight(&light_);
-    }
     setPanel(&panel_);
   }
 
  private:
   lgfx::Bus_SPI bus_;
   lgfx::Panel_ST7789 panel_;
-  lgfx::Light_PWM light_;
 };
 
 }  // namespace desk

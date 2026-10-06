@@ -9,6 +9,7 @@
 
 #include <variant>
 
+#include "backlight_pwm.hpp"
 #include "ble_link.hpp"
 #include "board.hpp"
 #include "desk/app/desk_app.hpp"
@@ -24,30 +25,11 @@ namespace {
 
 using namespace desk;
 
-/// Backlight through the panel's PWM, with a perceptual curve so low levels stay visible.
-class PanelBacklight final : public app::Backlight {
- public:
-  explicit PanelBacklight(lgfx::LGFX_Device& lcd) : lcd_(lcd) {}
-
-  void set(float level) override {
-    const float clamped = std::clamp(level, 0.0f, 1.0f);
-    const auto duty = static_cast<std::uint8_t>(4.0f + 251.0f * clamped * clamped);
-    if (duty != last_) {
-      lcd_.setBrightness(duty);
-      last_ = duty;
-    }
-  }
-
- private:
-  lgfx::LGFX_Device& lcd_;
-  std::uint8_t last_ = 0;
-};
-
 Instant monotonicNow() { return Instant{Millis{esp_timer_get_time() / 1000}}; }
 
 LgfxT190 lcd;
 ui::Canvas canvas(&lcd);
-PanelBacklight backlight(lcd);
+esp32::PwmBacklight backlight;
 #ifdef DESK_DEMO
 demo::Scenario scenario(monotonicNow());
 app::DeskApp deskApp(scenario, backlight);
@@ -130,12 +112,12 @@ void setup() {
   pinMode(board::kAuxButton, INPUT_PULLUP);
   delay(20);
 
+  backlight.begin();
   lcd.init();
   applied = settingsStore.load();
   deskApp.applySettings(applied);
   lcd.setRotation(applied.flipScreen ? board::kRotationFlipped : board::kRotation);
   lcd.fillScreen(TFT_BLACK);
-  lcd.setBrightness(0);
   canvas.setPsram(false);  // internal RAM so the frame can go out by DMA
   canvas.setColorDepth(16);
   canvas.createSprite(320, 170);
