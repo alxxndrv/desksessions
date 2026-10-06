@@ -1,0 +1,11 @@
+{
+  "name": "core",
+  "version": "0.1.0",
+  "description": "Portable domain, application and animation core. No Arduino, BLE or display dependencies.",
+  "frameworks": "*",
+  "platforms": "*",
+  "build": {
+    "includeDir": "include",
+    "srcDir": "src"
+  }
+}
