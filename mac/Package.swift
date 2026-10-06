@@ -14,7 +14,7 @@ let package = Package(
         // The menu-bar app: panel, settings, Bluetooth.
         .executableTarget(name: "DeskSessions", dependencies: ["DeskCore"]),
         // Runs on every Codex hook: forwards the event to the app and exits.
-        .executableTarget(name: "desksessions-hook"),
+        .executableTarget(name: "desksessions-hook", dependencies: ["DeskCore"]),
         .testTarget(name: "DeskCoreTests", dependencies: ["DeskCore"]),
     ]
 )
