@@ -29,9 +29,18 @@ void BacklightController::alert(domain::Alert alert, Instant now) {
   if (pulses == 0 || nightActive_) {
     return;
   }
-  if (pulseStart_ && now - *pulseStart_ < kMergeWindow) {
-    pulses_ = std::max(pulses_, pulses);  // a burst: one sequence, at the strongest alert
-    return;
+  if (pulseStart_) {
+    const Millis elapsed = now - *pulseStart_;
+    if (elapsed < kMergeWindow) {
+      pulses_ = std::max(pulses_, pulses);  // a burst: one sequence, at the strongest alert
+      return;
+    }
+    if (elapsed < anim::kBreathPeriod * pulses_) {
+      // Still pulsing: carry on from the current breath instead of restarting mid-dip.
+      const auto current = static_cast<int>(elapsed / anim::kBreathPeriod);
+      pulses_ = std::max(pulses_, current + pulses);
+      return;
+    }
   }
   pulseStart_ = now;
   pulses_ = pulses;

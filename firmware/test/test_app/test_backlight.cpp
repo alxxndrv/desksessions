@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <cmath>
+
 #include "desk/app/backlight.hpp"
 #include "desk/app/wall_clock.hpp"
 
@@ -58,6 +60,25 @@ TEST(Backlight, BurstsMergeIntoOneSequence) {
   b.alert(Alert::Done, now);  // within 5 s: does not restart
   now = now + Millis{1'000};  // 2 s after the first: its single pulse is over
   EXPECT_FLOAT_EQ(b.level(Phase::Online, false, kNoon, now), 1.0f);
+}
+
+TEST(Backlight, LateAlertsExtendPulsingWithoutAJump) {
+  BacklightController b;
+  Instant now{Millis{1'000}};
+  settle(b, Phase::Online, false, kNoon, now);
+  b.alert(Alert::NeedsYou, now);
+  float previous = b.level(Phase::Online, false, kNoon, now);
+  float largestStep = 0.0f;
+  for (int t = 0; t < 12'000; t += 16) {
+    now = now + Millis{16};
+    if (t == 5'200) {
+      b.alert(Alert::NeedsYou, now);  // past the merge window, mid third breath
+    }
+    const float level = b.level(Phase::Online, false, kNoon, now);
+    largestStep = std::max(largestStep, std::fabs(level - previous));
+    previous = level;
+  }
+  EXPECT_LT(largestStep, 0.05f);
 }
 
 TEST(Backlight, NoPulsesAtNight) {
