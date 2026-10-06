@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <fstream>
+#include <string>
 #include <vector>
 
 #include "desk/protocol/wire.hpp"
@@ -129,6 +131,39 @@ TEST(Wire, TruncatesNamesOnUtf8Boundaries) {
 
 TEST(Wire, FullFrameFitsTheChunkBudget) {
   EXPECT_LE(kMaxFrameBytes, kMaxChunks * (182 - kChunkHeaderBytes));
+}
+
+TEST(Wire, DecodesTheGoldenFrameTheMacEncodes) {
+  // protocol/golden/frame-v1.hex is also asserted byte-for-byte by the Mac app's tests.
+  // Tests run from the firmware directory.
+  const std::string path = "../protocol/golden/frame-v1.hex";
+  std::ifstream file(path);
+  ASSERT_TRUE(file.good()) << path;
+  std::string hex;
+  file >> hex;
+  std::vector<std::uint8_t> bytes;
+  for (std::size_t i = 0; i + 1 < hex.size(); i += 2) {
+    bytes.push_back(static_cast<std::uint8_t>(std::stoi(hex.substr(i, 2), nullptr, 16)));
+  }
+
+  const auto frame = decodeFrame(bytes);
+  ASSERT_TRUE(frame.has_value());
+  EXPECT_EQ(frame->secondsOfDay, 12u * 3600 + 34 * 60 + 56);
+  EXPECT_EQ(frame->nightStart, 23);
+  EXPECT_EQ(frame->nightEnd, 8);
+  EXPECT_FALSE(frame->settings.flipScreen);
+  EXPECT_TRUE(frame->settings.swapButtons);
+  ASSERT_EQ(frame->snapshot.sessions.size(), 2u);
+  const auto& a = frame->snapshot.sessions[0];
+  EXPECT_EQ(a.id.value, 0x01020304u);
+  EXPECT_EQ(a.state, domain::SessionState::NeedsYou);
+  EXPECT_EQ(a.inState, Millis{42'000});
+  EXPECT_STREQ(a.name.c_str(), "servarium-05");
+  EXPECT_STREQ(a.detail.c_str(), "perm");
+  const auto& b = frame->snapshot.sessions[1];
+  EXPECT_EQ(b.agent, domain::Agent::Codex);
+  EXPECT_EQ(b.subagents, 3);
+  EXPECT_STREQ(b.name.c_str(), "Миграция базы");
 }
 
 int main(int argc, char** argv) {

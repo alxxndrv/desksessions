@@ -8,3 +8,5 @@ DerivedData/
 xcuserdata/
 /recordings/
 firmware/recordings/
+mac/.build/
+mac/build/
