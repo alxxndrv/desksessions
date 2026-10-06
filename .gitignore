@@ -10,3 +10,4 @@ xcuserdata/
 firmware/recordings/
 mac/.build/
 mac/build/
+.playwright-mcp/
