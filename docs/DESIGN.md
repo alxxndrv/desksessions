@@ -142,6 +142,19 @@ motion, Apple springs for organic motion.
 | Screen changes | list → all-quiet: port hole 198 ms; pairing: moook slide 231 ms | Pebble compositor |
 | Mac app | same `.snappy` / `.smooth` springs natively in SwiftUI | — |
 
+### Interruptible and reversible (rule for every motion)
+
+Nothing snaps and nothing queues. Every animated property is a retargetable channel that continues
+from its current presented value and velocity:
+
+- **Springs** retarget in place, keeping velocity (Apple).
+- **Tweens** interrupted mid-flight continue from the current value with ease-out (Pebble
+  scroll_layer rule).
+- **Moook** interrupted mid-flight plays only its settle half from the current value (Pebble
+  menu_layer rule).
+- Long-press fill and row lift follow the finger and drain back with a spring on early release.
+- Row enter/exit and screen transitions reverse from wherever they are if the state flips back.
+
 ### Reference values
 
 **Pebble** (`coredevices/PebbleOS` @ `054d9d7`)
