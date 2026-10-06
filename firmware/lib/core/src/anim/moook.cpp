@@ -29,7 +29,7 @@ struct Keyframes {
       return from + direction * shape.in[index];
     }
     if (index < midEnd) {
-      const float start = from + direction * shape.in.back();
+      const float start = shape.in.empty() ? from : from + direction * shape.in.back();
       const float end = to + direction * shape.out.front();
       const auto step = static_cast<float>(index - inCount + 1);
       return lerp(start, end, step / static_cast<float>(shape.midFrames + 1));
