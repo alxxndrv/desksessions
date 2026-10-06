@@ -59,6 +59,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let seconds = (parts.hour ?? 0) * 3600 + (parts.minute ?? 0) * 60 + (parts.second ?? 0)
         return Wire.Frame(sessions: monitor.sessions, secondsOfDay: UInt32(seconds),
                           nightStart: UInt8(settings.nightStart), nightEnd: UInt8(settings.nightEnd),
+                          dayBrightness: UInt8(clamping: settings.dayBrightness),
+                          nightBrightness: UInt8(clamping: settings.nightBrightness),
                           flags: settings.flags, now: now)
     }
 
@@ -92,6 +94,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             _ = settings.flags
             _ = settings.nightStart
             _ = settings.nightEnd
+            _ = settings.dayBrightness
+            _ = settings.nightBrightness
             _ = settings.filter
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in

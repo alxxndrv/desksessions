@@ -7,6 +7,7 @@
 #include <Preferences.h>
 #include <esp_timer.h>
 
+#include <optional>
 #include <variant>
 
 #include "backlight_pwm.hpp"
@@ -47,7 +48,9 @@ class SettingsStore {
   app::DeviceSettings load() {
     prefs_.begin("desk", false);  // read-write so the namespace exists on first boot
     app::DeviceSettings settings{.flipScreen = prefs_.getBool("flip", false),
-                                 .swapButtons = prefs_.getBool("swap", false)};
+                                 .swapButtons = prefs_.getBool("swap", false),
+                                 .dayBrightness = prefs_.getUChar("day", 100),
+                                 .nightBrightness = prefs_.getUChar("night", 10)};
     prefs_.end();
     return settings;
   }
@@ -55,6 +58,8 @@ class SettingsStore {
     prefs_.begin("desk", false);
     prefs_.putBool("flip", settings.flipScreen);
     prefs_.putBool("swap", settings.swapButtons);
+    prefs_.putUChar("day", settings.dayBrightness);
+    prefs_.putUChar("night", settings.nightBrightness);
     prefs_.end();
   }
 
@@ -64,14 +69,21 @@ class SettingsStore {
 
 SettingsStore settingsStore;
 app::DeviceSettings applied;
+std::optional<Instant> unsavedSince;
+constexpr Millis kSaveAfter{2'000};  // a slider being dragged shouldn't write flash every frame
 
-void applyDisplaySettings() {
-  if (deskApp.settings() == applied) {
-    return;
+void applyDisplaySettings(Instant now) {
+  if (deskApp.settings() != applied) {
+    if (applied.flipScreen != deskApp.settings().flipScreen) {
+      lcd.setRotation(deskApp.settings().flipScreen ? board::kRotationFlipped : board::kRotation);
+    }
+    applied = deskApp.settings();
+    unsavedSince = now;
   }
-  applied = deskApp.settings();
-  lcd.setRotation(applied.flipScreen ? board::kRotationFlipped : board::kRotation);
-  settingsStore.save(applied);
+  if (unsavedSince && now - *unsavedSince >= kSaveAfter) {
+    settingsStore.save(applied);
+    unsavedSince.reset();
+  }
 }
 
 constexpr Millis kFrame{16};
@@ -137,7 +149,7 @@ void loop() {
   deskApp.tick({.bootDown = digitalRead(board::kBootButton) == LOW,
                 .auxDown = digitalRead(board::kAuxButton) == LOW},
                now);
-  applyDisplaySettings();
+  applyDisplaySettings(now);
   renderer.draw(deskApp, now);
   canvas.pushSprite(0, 0);
 

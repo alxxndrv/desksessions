@@ -9,6 +9,7 @@ namespace {
 
 constexpr float kPulseDepth = 0.65f;
 constexpr anim::Motion kSettle = anim::Motion::tween(anim::Curve::CaEaseInOut, Millis{600});
+constexpr anim::Motion kFollow = anim::Motion::tween(anim::Curve::EaseOut, Millis{120});
 
 int pulsesFor(domain::Alert alert) {
   switch (alert) {
@@ -50,16 +51,21 @@ float BacklightController::level(Phase phase, bool boardEmpty, std::optional<Wal
                                  Instant now) {
   nightActive_ = wallTime && night_.contains(*wallTime);
 
-  float target = kDay;
+  float target = day_;
   if (phase == Phase::Asleep) {
-    target = kAsleep;
+    target = std::min(day_, kAsleep);
   } else if (boardEmpty && phase != Phase::Unpaired && phase != Phase::Pairing) {
-    target = kQuiet;
+    target = day_ * kQuietFactor;
   }
   if (nightActive_) {
-    target = std::min(target, kNight);
+    target = std::min(target, nightLevel_);
   }
-  resting_.animateTo(target, kSettle, now);
+  if (followHand_) {
+    resting_.animateTo(target, kFollow, now);
+    followHand_ = false;
+  } else if (target != resting_.target()) {
+    resting_.animateTo(target, kSettle, now);
+  }
   resting_.update(now);
   return resting_.value() * (1.0f - pulseDip(now));
 }

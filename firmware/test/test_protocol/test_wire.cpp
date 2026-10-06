@@ -17,6 +17,7 @@ Frame sample() {
   frame.nightStart = 22;
   frame.nightEnd = 7;
   frame.settings.swapButtons = true;
+  frame.settings.dayBrightness = 55;
   domain::Session a;
   a.id = domain::SessionId{0xDEADBEEF};
   a.agent = domain::Agent::Codex;
@@ -59,6 +60,7 @@ TEST(Wire, FrameRoundTrips) {
   EXPECT_EQ(decoded->nightStart, 22);
   EXPECT_FALSE(decoded->settings.flipScreen);
   EXPECT_TRUE(decoded->settings.swapButtons);
+  EXPECT_EQ(decoded->settings.dayBrightness, 55);
   ASSERT_EQ(decoded->snapshot.sessions.size(), 2u);
   const domain::Session& a = decoded->snapshot.sessions[0];
   EXPECT_EQ(a.id.value, 0xDEADBEEFu);
@@ -153,6 +155,8 @@ TEST(Wire, DecodesTheGoldenFrameTheMacEncodes) {
   EXPECT_EQ(frame->nightEnd, 8);
   EXPECT_FALSE(frame->settings.flipScreen);
   EXPECT_TRUE(frame->settings.swapButtons);
+  EXPECT_EQ(frame->settings.dayBrightness, 80);
+  EXPECT_EQ(frame->settings.nightBrightness, 12);
   ASSERT_EQ(frame->snapshot.sessions.size(), 2u);
   const auto& a = frame->snapshot.sessions[0];
   EXPECT_EQ(a.id.value, 0x01020304u);

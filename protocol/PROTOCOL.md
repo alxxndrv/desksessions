@@ -40,6 +40,8 @@ for a new `frame` discards any partial one. Each chunk is at most `min(MTU − 3
 | 4 | `secondsOfDay` — Mac local time, seconds past midnight |
 | 1 | `nightStart` — hour 0–23 |
 | 1 | `nightEnd` — hour 0–23 |
+| 1 | `dayBrightness` — percent, 0–100 |
+| 1 | `nightBrightness` — percent, 0–100, used during quiet hours |
 | 1 | `count` — sessions that follow, 0–16 |
 | … | `count` × session |
 

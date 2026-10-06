@@ -43,6 +43,12 @@ private struct ClockTab: View {
                     }
                 }
             }
+            Section("Brightness") {
+                BrightnessSlider(title: "Day", value: $settings.dayBrightness, symbol: "sun.max")
+                BrightnessSlider(title: "Quiet hours", value: $settings.nightBrightness, symbol: "moon")
+                Text("Changes show on the clock as you drag. The clock dims further on its own when nothing's happening.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("Orientation") {
                 Toggle("Flip the screen upside down", isOn: $settings.flipScreen)
                 Toggle("Swap the buttons", isOn: $settings.swapButtons)
@@ -64,6 +70,28 @@ private struct ClockTab: View {
 
     private var hours: some View {
         ForEach(0..<24, id: \.self) { Text(String(format: "%02d:00", $0)).tag($0) }
+    }
+}
+
+private struct BrightnessSlider: View {
+    let title: String
+    @Binding var value: Int
+    let symbol: String
+
+    var body: some View {
+        LabeledContent(title) {
+            HStack(spacing: 10) {
+                Image(systemName: symbol).foregroundStyle(.secondary).frame(width: 16)
+                Slider(value: Binding(get: { Double(value) }, set: { value = Int($0.rounded()) }),
+                       in: 1...100)
+                Text("\(value)%")
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .frame(width: 40, alignment: .trailing)
+                    .contentTransition(.numericText(value: Double(value)))
+                    .animation(Motion.snappy, value: value)
+            }
+        }
     }
 }
 

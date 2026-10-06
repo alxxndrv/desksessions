@@ -18,7 +18,7 @@ namespace desk::protocol {
 inline constexpr std::uint8_t kVersion = 1;
 inline constexpr std::size_t kChunkHeaderBytes = 3;
 inline constexpr std::size_t kMaxChunks = 8;
-inline constexpr std::size_t kFrameHeaderBytes = 9;
+inline constexpr std::size_t kFrameHeaderBytes = 11;
 inline constexpr std::size_t kMaxSessionBytes =
     4 + 1 + 1 + 1 + 4 + 1 + domain::kMaxNameBytes + 1 + domain::kMaxDetailBytes;
 inline constexpr std::size_t kMaxFrameBytes =

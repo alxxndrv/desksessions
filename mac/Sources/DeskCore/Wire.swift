@@ -25,15 +25,19 @@ public enum Wire {
         public var secondsOfDay: UInt32
         public var nightStart: UInt8
         public var nightEnd: UInt8
+        public var dayBrightness: UInt8
+        public var nightBrightness: UInt8
         public var flags: Flags
         public var now: Date
 
         public init(sessions: [Session], secondsOfDay: UInt32, nightStart: UInt8, nightEnd: UInt8,
-                    flags: Flags, now: Date) {
+                    dayBrightness: UInt8 = 100, nightBrightness: UInt8 = 10, flags: Flags, now: Date) {
             self.sessions = sessions
             self.secondsOfDay = secondsOfDay
             self.nightStart = nightStart
             self.nightEnd = nightEnd
+            self.dayBrightness = min(dayBrightness, 100)
+            self.nightBrightness = min(nightBrightness, 100)
             self.flags = flags
             self.now = now
         }
@@ -50,6 +54,8 @@ public enum Wire {
         out.appendLE(frame.secondsOfDay)
         out.append(frame.nightStart)
         out.append(frame.nightEnd)
+        out.append(frame.dayBrightness)
+        out.append(frame.nightBrightness)
         let sessions = frame.sessions.prefix(maxSessions)
         out.append(UInt8(sessions.count))
         for s in sessions {

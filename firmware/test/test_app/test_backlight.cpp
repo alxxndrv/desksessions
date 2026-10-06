@@ -29,9 +29,19 @@ TEST(Backlight, RestingLevelsBySituation) {
   BacklightController b;
   Instant now{Millis{1'000}};
   EXPECT_FLOAT_EQ(settle(b, Phase::Online, false, kNoon, now), 1.0f);
-  EXPECT_FLOAT_EQ(settle(b, Phase::Online, true, kNoon, now), BacklightController::kQuiet);
+  EXPECT_FLOAT_EQ(settle(b, Phase::Online, true, kNoon, now), BacklightController::kQuietFactor);
   EXPECT_FLOAT_EQ(settle(b, Phase::Asleep, false, kNoon, now), BacklightController::kAsleep);
-  EXPECT_FLOAT_EQ(settle(b, Phase::Online, false, kMidnight, now), BacklightController::kNight);
+  EXPECT_FLOAT_EQ(settle(b, Phase::Online, false, kMidnight, now), 0.10f);
+}
+
+TEST(Backlight, FollowsChosenBrightness) {
+  BacklightController b;
+  Instant now{Millis{1'000}};
+  b.setBrightness(40, 5);
+  EXPECT_FLOAT_EQ(settle(b, Phase::Online, false, kNoon, now), 0.40f);
+  EXPECT_FLOAT_EQ(settle(b, Phase::Online, true, kNoon, now),
+                  0.40f * BacklightController::kQuietFactor);
+  EXPECT_FLOAT_EQ(settle(b, Phase::Online, false, kMidnight, now), 0.05f);
 }
 
 TEST(Backlight, NeedsYouPulsesThreeTimes) {
@@ -87,7 +97,7 @@ TEST(Backlight, NoPulsesAtNight) {
   settle(b, Phase::Online, false, kMidnight, now);
   b.alert(Alert::NeedsYou, now);
   now = now + Millis{900};
-  EXPECT_FLOAT_EQ(b.level(Phase::Online, false, kMidnight, now), BacklightController::kNight);
+  EXPECT_FLOAT_EQ(b.level(Phase::Online, false, kMidnight, now), 0.10f);
 }
 
 TEST(WallClock, CarriesTimeForward) {

@@ -42,7 +42,10 @@ class DeskApp {
   /// The Mac's local time: `secondsOfDay` past midnight at `now`.
   void setTime(std::uint32_t secondsOfDay, Instant now) { wallClock_.set(secondsOfDay, now); }
   void setNightHours(NightHours hours) { backlightControl_.setNightHours(hours); }
-  void applySettings(const DeviceSettings& settings) { settings_ = settings; }
+  void applySettings(const DeviceSettings& settings) {
+    settings_ = settings;
+    backlightControl_.setBrightness(settings.dayBrightness, settings.nightBrightness);
+  }
   [[nodiscard]] const DeviceSettings& settings() const { return settings_; }
 
   /// Advances one frame: buttons, idle behaviour, animation.

@@ -24,7 +24,7 @@ private func golden() throws -> [UInt8] {
                     subagents: 3, stateSince: now.addingTimeInterval(-3600)),
         ],
         secondsOfDay: 12 * 3600 + 34 * 60 + 56, nightStart: 23, nightEnd: 8,
-        flags: [.swapButtons], now: now)
+        dayBrightness: 80, nightBrightness: 12, flags: [.swapButtons], now: now)
     #expect(Wire.encode(frame) == (try golden()))
 }
 
@@ -35,7 +35,7 @@ private func golden() throws -> [UInt8] {
         sessions: [Session(id: 1, agent: .claude, state: .done, name: name, stateSince: now)],
         secondsOfDay: 0, nightStart: 23, nightEnd: 8, flags: [], now: now)
     let bytes = Wire.encode(frame)
-    #expect(bytes[9 + 11] == 47)  // name length byte after the fixed session fields
+    #expect(bytes[11 + 11] == 47)  // name length byte after the header and fixed session fields
 }
 
 @Test func chunksCarryHeadersAndReassemble() {

@@ -101,8 +101,10 @@ std::optional<Frame> decodeFrame(std::span<const std::uint8_t> bytes) {
   std::uint8_t flags = 0;
   std::uint8_t count = 0;
   if (!in.u8(version) || version != kVersion || !in.u8(flags) || !in.u32(frame.secondsOfDay) ||
-      !in.u8(frame.nightStart) || !in.u8(frame.nightEnd) || !in.u8(count) ||
-      count > domain::kMaxSessions || frame.nightStart > 23 || frame.nightEnd > 23) {
+      !in.u8(frame.nightStart) || !in.u8(frame.nightEnd) || !in.u8(frame.settings.dayBrightness) ||
+      !in.u8(frame.settings.nightBrightness) || !in.u8(count) || count > domain::kMaxSessions ||
+      frame.nightStart > 23 || frame.nightEnd > 23 || frame.settings.dayBrightness > 100 ||
+      frame.settings.nightBrightness > 100) {
     return std::nullopt;
   }
   frame.settings.flipScreen = (flags & kFlagFlipScreen) != 0;
@@ -135,6 +137,8 @@ std::size_t encodeFrame(const Frame& frame, std::span<std::uint8_t> out) {
   w.u32(frame.secondsOfDay);
   w.u8(frame.nightStart);
   w.u8(frame.nightEnd);
+  w.u8(frame.settings.dayBrightness);
+  w.u8(frame.settings.nightBrightness);
   w.u8(static_cast<std::uint8_t>(frame.snapshot.sessions.size()));
   for (const domain::Session& s : frame.snapshot.sessions) {
     w.u32(s.id.value);

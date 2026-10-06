@@ -15,6 +15,9 @@ final class AppSettings {
     var nightEnd: Int { didSet { defaults.set(nightEnd, forKey: "nightEnd") } }
     var flipScreen: Bool { didSet { defaults.set(flipScreen, forKey: "flipScreen") } }
     var swapButtons: Bool { didSet { defaults.set(swapButtons, forKey: "swapButtons") } }
+    /// Percent.
+    var dayBrightness: Int { didSet { defaults.set(dayBrightness, forKey: "dayBrightness") } }
+    var nightBrightness: Int { didSet { defaults.set(nightBrightness, forKey: "nightBrightness") } }
     var allowPatterns: [String] { didSet { defaults.set(allowPatterns, forKey: "allowPatterns") } }
     var denyPatterns: [String] { didSet { defaults.set(denyPatterns, forKey: "denyPatterns") } }
     var hotKey: HotKey.Combo { didSet { hotKey.save(to: defaults) } }
@@ -26,11 +29,13 @@ final class AppSettings {
     var filter: SessionFilter { SessionFilter(allow: allowPatterns, deny: denyPatterns) }
 
     init() {
-        defaults.register(defaults: ["nightStart": 23, "nightEnd": 8])
+        defaults.register(defaults: ["nightStart": 23, "nightEnd": 8, "dayBrightness": 100, "nightBrightness": 10])
         nightStart = defaults.integer(forKey: "nightStart")
         nightEnd = defaults.integer(forKey: "nightEnd")
         flipScreen = defaults.bool(forKey: "flipScreen")
         swapButtons = defaults.bool(forKey: "swapButtons")
+        dayBrightness = defaults.integer(forKey: "dayBrightness")
+        nightBrightness = defaults.integer(forKey: "nightBrightness")
         allowPatterns = defaults.stringArray(forKey: "allowPatterns") ?? []
         denyPatterns = defaults.stringArray(forKey: "denyPatterns") ?? []
         hotKey = HotKey.Combo(from: defaults) ?? .default
