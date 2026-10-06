@@ -8,6 +8,7 @@
 #include "desk/app/ports.hpp"
 #include "desk/app/wall_clock.hpp"
 #include "desk/domain/session_board.hpp"
+#include "desk/protocol/wire.hpp"
 #include "desk/scene/board_scene.hpp"
 #include "desk/scene/stage_scene.hpp"
 #include "desk/util/time.hpp"
@@ -30,6 +31,9 @@ class DeskApp {
 
   /// A fresh snapshot from the Mac.
   domain::Alert receive(const domain::Snapshot& snapshot, Instant now);
+
+  /// A decoded frame from the Mac: its clock, quiet hours and snapshot.
+  domain::Alert receive(const protocol::Frame& frame, Instant now);
 
   /// The BLE link changed state.
   void linkChanged(const LinkEvent& event, Instant now);

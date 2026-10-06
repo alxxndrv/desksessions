@@ -9,6 +9,12 @@ domain::Alert DeskApp::receive(const domain::Snapshot& snapshot, Instant now) {
   return alert;
 }
 
+domain::Alert DeskApp::receive(const protocol::Frame& frame, Instant now) {
+  setTime(frame.secondsOfDay, now);
+  setNightHours(NightHours{.startHour = frame.nightStart, .endHour = frame.nightEnd});
+  return receive(frame.snapshot, now);
+}
+
 void DeskApp::linkChanged(const LinkEvent& event, Instant now) { connection_.onEvent(event, now); }
 
 void DeskApp::tick(const Inputs& inputs, Instant now) {

@@ -80,3 +80,13 @@ TEST_F(DeskAppTest, CursorDriftsHomeAfterThirtySecondsIdle) {
   hold(false, false, 1'100);
   EXPECT_EQ(app.board().cursor(), 0u);
 }
+
+TEST_F(DeskAppTest, FramesSetTheClockAndNightHours) {
+  protocol::Frame frame;
+  frame.secondsOfDay = 9 * 3600 + 15 * 60;
+  frame.nightStart = 21;
+  frame.nightEnd = 6;
+  app.receive(frame, now);
+  EXPECT_EQ(app.wallTime(now), (WallTime{9, 15}));
+  EXPECT_TRUE(app.board().empty());
+}
