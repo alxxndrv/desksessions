@@ -1,0 +1,9 @@
+.DS_Store
+.pio/
+.vscode/
+build/
+.build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+/recordings/
