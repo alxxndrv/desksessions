@@ -6,6 +6,13 @@
   "platforms": "*",
   "build": {
     "includeDir": "include",
-    "srcDir": "src"
+    "srcDir": "src",
+    "flags": [
+      "-Wall",
+      "-Wextra",
+      "-Wconversion",
+      "-Wshadow",
+      "-Werror"
+    ]
   }
 }
