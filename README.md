@@ -1,5 +1,7 @@
 # desksessions
 
+<img src="docs/media/render.jpg" alt="A dark wedge-shaped case with a small screen on its sloped front listing five sessions, two buttons beside it and a USB cable leaving on the right" width="720">
+
 A small desk display that shows your running Claude Code and Codex sessions: which ones are
 working, which are done, and which are waiting for you.
 
@@ -12,6 +14,19 @@ It has two halves:
 
 The buttons on the clock move the cursor, dismiss a finished session, or jump to the selected
 session on the Mac.
+
+| | |
+|---|---|
+| ![The highlight moving between rows of the session list](docs/media/cursor.gif) | ![Holding a button fills the row, then it slides away](docs/media/dismiss.gif) |
+| Moving the cursor with the two buttons | Hold to dismiss a finished session |
+| ![The list closes into a circle and a smiling face appears](docs/media/quiet.gif) | ![Rows collapse into a sleeping face, then return](docs/media/asleep.gif) |
+| Nothing left to do | The Mac goes to sleep and wakes up |
+
+<img src="docs/media/printed.jpg" alt="The printed white case on a green cutting mat, with the clock inside showing two finished sessions" width="720">
+
+The motion borrows from Pebble and Apple; the timings are in `docs/DESIGN.md`, and
+[Thirty-three milliseconds](https://georgii.cc/thirty-three-milliseconds) is the story of
+building it.
 
 ## Layout
 
