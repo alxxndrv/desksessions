@@ -11,3 +11,6 @@ firmware/recordings/
 mac/.build/
 mac/build/
 .playwright-mcp/
+
+# Enclosure CAD, renders and the product page: not published yet
+/hardware/
