@@ -13,13 +13,13 @@
 //! Falls back to clock pacing if the scanline read doesn't work.
 
 use embassy_time::{Duration, Instant, Timer};
-use esp_hal::Async;
 use esp_hal::delay::Delay;
 use esp_hal::dma::{DmaRxBuf, DmaTxBuf};
 use esp_hal::gpio::Output;
 use esp_hal::spi::Mode;
 use esp_hal::spi::master::{Address, Command, Config, DataMode, SpiDma, SpiDmaTransfer};
 use esp_hal::time::Rate;
+use esp_hal::{Async, Blocking};
 
 use crate::board::{PANEL_HEIGHT, PANEL_OFFSET_X, PANEL_WIDTH};
 
@@ -83,6 +83,17 @@ pub struct Stats {
     pub scan_wait_us: u64,
 }
 
+/// The panel's wiring, before it is set up: what crosses to the core that drives it.
+pub struct Panel {
+    pub spi: SpiDma<'static, Blocking>,
+    pub cs: Output<'static>,
+    pub dc: Output<'static>,
+    pub reset: Output<'static>,
+    pub small_tx: DmaTxBuf,
+    pub small_rx: DmaRxBuf,
+    pub bands: [DmaTxBuf; 2],
+}
+
 pub struct Display {
     spi: Option<SpiDma<'static, Async>>,
     cs: Output<'static>,
@@ -98,31 +109,28 @@ pub struct Display {
 }
 
 impl Display {
-    pub fn new(
-        spi: SpiDma<'static, Async>,
-        cs: Output<'static>,
-        dc: Output<'static>,
-        small_tx: DmaTxBuf,
-        small_rx: DmaRxBuf,
-        bands: [DmaTxBuf; 2],
-    ) -> Self {
-        let [a, b] = bands;
-        Self {
-            spi: Some(spi),
-            cs,
-            dc,
-            small_tx: Some(small_tx),
-            small_rx: Some(small_rx),
+    /// Takes over `panel` on the current core. Returns the reset line for [`Display::init`].
+    #[must_use]
+    pub fn new(panel: Panel) -> (Self, Output<'static>) {
+        let [a, b] = panel.bands;
+        let display = Self {
+            spi: Some(panel.spi.into_async()),
+            cs: panel.cs,
+            dc: panel.dc,
+            small_tx: Some(panel.small_tx),
+            small_rx: Some(panel.small_rx),
             bands: [Some(a), Some(b)],
             pending: None,
             scanline_works: false,
             last_sent: Instant::now(),
             stats: Stats::default(),
-        }
+        };
+        (display, panel.reset)
     }
 
-    /// Resets and configures the panel, clears it to black, and checks the scanline read.
-    pub async fn init(&mut self, reset: &mut Output<'static>) -> Result<(), Error> {
+    /// Resets and configures the panel, shows `blank` (a whole frame), and checks the scanline
+    /// read.
+    pub async fn init(&mut self, reset: &mut Output<'static>, blank: &[u16]) -> Result<(), Error> {
         let delay = Delay::new();
         reset.set_low();
         delay.delay_millis(8);
@@ -140,8 +148,7 @@ impl Display {
         self.command(COLMOD, &[RGB565]).await?;
         self.command(MADCTL, &[MAD_BGR]).await?;
 
-        let black = [0u16; PANEL_WIDTH * PANEL_HEIGHT];
-        self.send_frame(&black).await?;
+        self.send_frame(blank).await?;
         self.scanline_works = self.probe_scanline().await;
         esp_println::println!(
             "[vsync] scanline {}",

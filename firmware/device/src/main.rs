@@ -13,14 +13,17 @@ mod backlight;
 mod ble;
 mod board;
 mod display;
+mod pump;
 mod storage;
 
+use allocator_api2::boxed::Box;
 use desk_core::app::{DeskApp, DeviceSettings, Inputs};
 use desk_core::time::{Instant, Millis};
 use desk_ui::{Canvas, Renderer};
 use embassy_executor::Spawner;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::mutex::Mutex;
+use esp_alloc::ExternalMemory;
 use esp_hal::clock::CpuClock;
 use esp_hal::dma::{DmaRxBuf, DmaTxBuf};
 use esp_hal::gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull};
@@ -31,12 +34,12 @@ use esp_hal::spi::master::Spi;
 use esp_hal::time::Rate;
 use esp_hal::timer::timg::TimerGroup;
 use esp_storage::FlashStorage;
-use static_cell::StaticCell;
+use static_cell::{ConstStaticCell, StaticCell};
 use {esp_alloc as _, esp_backtrace as _};
 
 use crate::backlight::Backlight;
 use crate::board::{CANVAS_ROTATION, CANVAS_ROTATION_FLIPPED, PANEL_HEIGHT, PANEL_WIDTH};
-use crate::display::{BAND_BYTES, Display};
+use crate::display::{BAND_BYTES, Panel};
 use crate::storage::Store;
 
 esp_bootloader_esp_idf::esp_app_desc!();
@@ -135,26 +138,24 @@ async fn main(spawner: Spawner) {
     let spi = spi
         .with_sck(peripherals.GPIO38)
         .with_sio0(peripherals.GPIO48)
-        .with_dma(peripherals.DMA_CH0)
-        .into_async();
+        .with_dma(peripherals.DMA_CH0);
     let cs = Output::new(peripherals.GPIO39, Level::High, OutputConfig::default());
     let dc = Output::new(peripherals.GPIO47, Level::High, OutputConfig::default());
-    let mut reset = Output::new(peripherals.GPIO40, Level::High, OutputConfig::default());
+    let reset = Output::new(peripherals.GPIO40, Level::High, OutputConfig::default());
     let small_rx: DmaRxBuf = esp_hal::dma_rx_buffer!(32).expect("rx buffer");
     let small_tx: DmaTxBuf = esp_hal::dma_tx_buffer!(64).expect("tx buffer");
     let band_a = esp_hal::dma_tx_buffer!(BAND_BYTES).expect("band buffer");
     let band_b = esp_hal::dma_tx_buffer!(BAND_BYTES).expect("band buffer");
-    let mut display = Display::new(spi, cs, dc, small_tx, small_rx, [band_a, band_b]);
-    if display.init(&mut reset).await.is_err() {
-        esp_println::println!("[display] init failed");
-    }
+    let panel = Panel { spi, cs, dc, reset, small_tx, small_rx, bands: [band_a, band_b] };
 
     // The app, and whoever plays the Mac.
-    let mut app = DeskApp::default();
+    // The app state and the renderer live in PSRAM too: in the main task they would crowd out the
+    // stack, which gets whatever internal RAM is left.
+    let mut app = Box::new_in(DeskApp::default(), ExternalMemory);
     app.apply_settings(applied);
     #[cfg(feature = "demo")]
     let mut link = {
-        let mut scenario = desk_demo::Scenario::new(now());
+        let mut scenario = Box::new_in(desk_demo::Scenario::new(now()), ExternalMemory);
         app.link_changed(desk_core::app::LinkEvent::Connected, now());
         app.set_time(12 * 3600, now()); // daytime, so the demo isn't dimmed
         scenario.advance(now());
@@ -181,14 +182,17 @@ async fn main(spawner: Spawner) {
     #[cfg(not(feature = "demo"))]
     let mut reassembler = desk_core::protocol::Reassembler::default();
 
-    // Larger than the internal heap, so it lands in PSRAM.
-    let frame = alloc::vec![0u16; PANEL_WIDTH * PANEL_HEIGHT];
+    // The frame itself stays in internal RAM: drawing into PSRAM through the cache was twice as
+    // slow, the rotated layout touching a new cache line on every pixel along a row.
+    // (A const cell: building 108 KB of zeros on the stack first would overflow it.)
+    static FRAME: ConstStaticCell<[u16; PANEL_WIDTH * PANEL_HEIGHT]> =
+        ConstStaticCell::new([0; PANEL_WIDTH * PANEL_HEIGHT]);
+    let frame = &mut FRAME.take()[..];
     let mut canvas = Canvas::new(frame, PANEL_WIDTH as i32, PANEL_HEIGHT as i32).byte_swapped();
     canvas.set_rotation(rotation(&applied));
-    let mut renderer = Renderer::new();
+    pump::start(panel, peripherals.CPU_CTRL, peripherals.FROM_CPU_INTR1);
+    let mut renderer = Box::new_in(Renderer::new(), ExternalMemory);
     let mut unsaved_since: Option<Instant> = None;
-    let mut render_us = 0u64;
-    let mut reported_at = embassy_time::Instant::now();
 
     loop {
         let t = now();
@@ -213,7 +217,11 @@ async fn main(spawner: Spawner) {
         }
 
         let inputs = Inputs { boot_down: boot.is_low(), aux_down: aux.is_low() };
-        backlight.set(app.tick(inputs, t, &mut link));
+        #[cfg(feature = "demo")]
+        let level = app.tick(inputs, t, &mut *link);
+        #[cfg(not(feature = "demo"))]
+        let level = app.tick(inputs, t, &mut link);
+        backlight.set(level);
 
         // Device settings: turn the picture at once, write flash once they stop changing.
         if *app.settings() != applied {
@@ -230,25 +238,6 @@ async fn main(spawner: Spawner) {
 
         let drawing = embassy_time::Instant::now();
         renderer.draw(&app, t, &mut canvas);
-        render_us += drawing.elapsed().as_micros();
-        if display.present(canvas.pixels()).await.is_err() {
-            esp_println::println!("[display] frame lost");
-        }
-
-        if cfg!(feature = "stats") && reported_at.elapsed().as_millis() >= 5_000 {
-            let stats = core::mem::take(&mut display.stats);
-            let frames = u64::from(stats.frames.max(1));
-            let seconds = reported_at.elapsed().as_millis() as f32 / 1000.0;
-            esp_println::println!(
-                "[frames] {:.1} fps, render {:.1} ms, send {:.1} ms, scan wait {:.1} ms, scanline {}",
-                stats.frames as f32 / seconds,
-                (render_us / frames) as f32 / 1000.0,
-                (stats.send_us / frames) as f32 / 1000.0,
-                (stats.scan_wait_us / frames) as f32 / 1000.0,
-                if display.scanline_works() { "ok" } else { "unavailable" },
-            );
-            render_us = 0;
-            reported_at = embassy_time::Instant::now();
-        }
+        pump::hand_over(canvas.pixels(), drawing.elapsed().as_micros() as u32).await;
     }
 }

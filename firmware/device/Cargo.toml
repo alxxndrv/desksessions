@@ -46,6 +46,7 @@ sequential-storage = "8"
 
 trouble-host = { version = "0.7", features = ["security", "derive", "default-packet-pool-mtu-255"] }
 
+allocator-api2 = { version = "0.3", default-features = false, features = ["alloc"] }
 bytemuck = "1"
 heapless = "0.9"
 static_cell = "2"
