@@ -1,0 +1,19 @@
+[package]
+name = "desk-sim"
+description = "The firmware's app and renderer in a window on the Mac, plus scripted recordings."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+desk-core = { workspace = true, features = ["std"] }
+desk-ui = { workspace = true, features = ["std"] }
+desk-demo = { workspace = true, features = ["std"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+clap = { version = "4", features = ["derive"] }
+minifb = "0.29"
+png = "0.18"
+
+[lints]
+workspace = true
