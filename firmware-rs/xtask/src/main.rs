@@ -54,20 +54,25 @@ fn check() -> Result<(), String> {
         .output()
         .is_ok_and(|o| o.status.success());
     if esp {
-        run(Command::new("cargo").current_dir(&device).args(["build", "--release"]))?;
-        run(Command::new("cargo").current_dir(&device).args([
-            "build",
-            "--release",
-            "--features",
-            "demo",
-        ]))?;
-        run(Command::new("cargo").current_dir(&device).args([
-            "clippy",
-            "--release",
-            "--",
-            "-D",
-            "warnings",
-        ]))?;
+        // The device crate picks the `esp` toolchain from its own rust-toolchain.toml, so the
+        // toolchain this xtask runs under must not leak in; espup's script puts the Xtensa linker
+        // on the PATH.
+        let device_cargo = |args: &str| {
+            let mut c = Command::new("sh");
+            c.current_dir(&device)
+                .env_remove("RUSTUP_TOOLCHAIN")
+                .env_remove("CARGO")
+                .arg("-c")
+                .arg(format!(
+                    "[ -f \"$HOME/export-esp.sh\" ] && . \"$HOME/export-esp.sh\"; cargo {args}"
+                ));
+            c
+        };
+        run(&mut device_cargo("fmt --check"))?;
+        run(&mut device_cargo("clippy --release -- -D warnings"))?;
+        run(&mut device_cargo("clippy --release --features demo,stats -- -D warnings"))?;
+        run(&mut device_cargo("build --release"))?;
+        run(&mut device_cargo("build --release --features demo"))?;
     } else {
         eprintln!("device build skipped: no `esp` toolchain (install with `espup install`)");
     }
