@@ -10,7 +10,7 @@ use desk_core::app::{DeskApp, Inputs, LinkEvent};
 use desk_core::domain::{Command, SessionState};
 use desk_core::time::{Instant, Millis};
 use desk_demo::Scenario;
-use desk_ui::{Canvas, Renderer, dim_for_backlight, expand565};
+use desk_ui::{Canvas, FrameMeter, Renderer, dim_for_backlight, expand565};
 
 pub use options::{Action, Cue, Options};
 
@@ -145,12 +145,15 @@ pub struct Simulation {
     canvas: Canvas<Vec<u16>>,
     backlight: f32,
     next_cue: usize,
+    /// With `--overlay`: frame timings, and when the last frame started.
+    meter: Option<(FrameMeter, std::time::Instant)>,
 }
 
 impl Simulation {
     #[must_use]
     pub fn new(options: Options) -> Self {
         let clock = SimClock::new(options.speed, options.capturing());
+        let options_overlay = options.overlay;
         let mut scenario = Scenario::new(clock.now());
         if !options.demo {
             scenario.toggle_auto();
@@ -168,6 +171,7 @@ impl Simulation {
             canvas: Canvas::new(vec![0; WIDTH * HEIGHT], WIDTH as i32, HEIGHT as i32),
             backlight: 1.0,
             next_cue: 0,
+            meter: options_overlay.then(|| (FrameMeter::new(), std::time::Instant::now())),
         }
     }
 
@@ -234,11 +238,24 @@ impl Simulation {
             self.app.receive_snapshot(&self.scenario.snapshot(now), now);
         }
 
+        let drawing = std::time::Instant::now();
         self.renderer.draw(&self.app, now, &mut self.canvas);
+        let draw_us = drawing.elapsed().as_micros() as u32;
         if self.options.backlight {
             for pixel in self.canvas.pixels_mut() {
                 *pixel = dim_for_backlight(*pixel, self.backlight);
             }
+        }
+        if let Some((meter, last)) = &mut self.meter {
+            // Captures run flat out, one simulated frame per frame: chart that, not the host.
+            let frame_us = if self.options.capturing() {
+                1_000_000 / FPS
+            } else {
+                drawing.duration_since(*last).as_micros() as u32
+            };
+            *last = drawing;
+            meter.record(frame_us, draw_us);
+            meter.draw(&mut self.canvas);
         }
         heard
     }

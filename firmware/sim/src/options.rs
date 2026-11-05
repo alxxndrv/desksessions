@@ -60,6 +60,9 @@ struct Args {
     /// No window: run as fast as possible (recordings and stills only).
     #[arg(long)]
     headless: bool,
+    /// Frame rate and drawing time over the picture, as the device's `overlay` build shows.
+    #[arg(long)]
+    overlay: bool,
 }
 
 /// Everything the simulator was asked to do.
@@ -77,6 +80,7 @@ pub struct Options {
     pub seconds_of_day: Option<u32>,
     pub backlight: bool,
     pub headless: bool,
+    pub overlay: bool,
 }
 
 impl Default for Options {
@@ -92,6 +96,7 @@ impl Default for Options {
             seconds_of_day: None,
             backlight: true,
             headless: false,
+            overlay: false,
         }
     }
 }
@@ -159,6 +164,7 @@ impl Options {
             shots_dir: args.shots.unwrap_or_default(),
             backlight: !args.no_backlight,
             headless: args.headless,
+            overlay: args.overlay,
             ..Self::default()
         };
         if let Some(at) = args.at {
