@@ -1,0 +1,18 @@
+[package]
+name = "desk-core"
+description = "Portable domain, application and animation core. No BLE or display dependencies."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+# Host builds take sin/cos from the platform's libm, like the C++ simulator did.
+std = []
+
+[dependencies]
+heapless.workspace = true
+libm.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,29 @@
+[workspace]
+resolver = "3"
+members = ["crates/core", "crates/ui", "crates/demo", "sim", "xtask"]
+exclude = ["device"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[workspace.dependencies]
+desk-core = { path = "crates/core" }
+desk-ui = { path = "crates/ui" }
+desk-demo = { path = "crates/demo" }
+heapless = "0.9"
+libm = "0.2"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+float_cmp = "allow"
+
+[profile.dev]
+opt-level = 1
+
+[profile.test]
+opt-level = 2
