@@ -1,0 +1,16 @@
+# Golden scenarios: name, then simulator arguments. Each runs in the C++ reference simulator
+# (`cargo xtask reference`) and in the Rust one (`cargo test -p desk-sim --test golden`); the
+# stills at --at must match, and so must the app's state on every frame in between.
+
+demo: --time 12:00 --shots . --at 100,500,1000,3000,3550,3700,4000,7050,7200,7400,10600,10700,14100,14300,17600,17700,21100,21300,24600,24800,28100,29000
+cursor: --no-demo --time 12:00 --script 400:down,800:down,1200:down,1600:up,2000:up,2400:up,2800:longdown,4600:down,4900:down,5300:longdown --shots . --at 300,430,460,500,520,560,640,900,1300,1700,2100,2430,2470,2520,2700,3000,3200,3300,3450,3650,3800,4100,4700,5000,5200,5600,5750,5900,6100,6500
+refuse: --no-demo --time 12:00 --script 300:longdown,1500:longup,2600:up,2700:up --shots . --at 350,500,700,800,900,1100,1300,1700,1850,2000,2200,2350,2650,2800,2900
+marquee: --no-demo --time 09:41 --shots . --at 500,700,1000,2000,3000,4000,4300,4600,5200,6000
+offline: --time 12:00 --script 1000:link,13000:link --shots . --at 900,5000,11000,11100,11200,11400,11600,12000,13050,13100,13200,13300,13400,13600
+asleep: --time 12:00 --script 1000:sleep,4000:link --shots . --at 1050,1100,1150,1200,1250,1300,1400,1600,2000,3000,4050,4100,4200,4400
+pairing: --time 12:00 --script 500:pair --shots . --at 550,600,650,700,800,2000,3000,3020,3060,3100,3200,3400,4000,7000,7050,7100,7200,7400
+quiet: --no-demo --time 12:00 --script 500:empty,4000:empty,6000:empty,7000:link --shots . --at 520,560,600,650,700,900,1500,3000,4050,4100,4200,4400,6100,6400,18000,18500
+many: --no-demo --time 12:00 --script 300:add,320:add,340:add,360:add,380:add,400:add,420:add,440:add,460:add,480:add,500:add,520:add,2000:down,2100:down,2200:down,2300:down,2400:down,2500:down,2600:down,2700:down,3800:needs,3900:needs --shots . --at 330,400,600,1500,2150,2350,2550,2750,3000,3850,4000,4300,5000
+night: --time 23:30 --script 1000:needs,2500:longdown --shots . --at 900,1100,1500,2000,3000,3300,4000
+backlight: --time 12:00 --script 1000:needs,1200:needs --shots . --at 900,1300,1600,1900,2400,3000,4000,5000,6000
+slowmo: --slowmo 0.25 --time 12:00 --script 200:down,700:add,1200:needs,2000:longdown --shots . --at 210,230,250,280,320,720,760,800,1210,1240,1300,2100,2400,2700,3000

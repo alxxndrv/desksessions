@@ -1,0 +1,13 @@
+[package]
+name = "xtask"
+description = "Project chores: gates, golden references, re-blessing."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+desk-sim = { path = "../sim" }
+
+[lints]
+workspace = true
