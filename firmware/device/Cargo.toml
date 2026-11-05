@@ -20,6 +20,8 @@ bench = false
 demo = ["dep:desk-demo"]
 # Frame timing over USB serial every 5 s.
 stats = []
+# Frame rate, drawing time and a chart of recent frames, drawn over the picture.
+overlay = []
 
 [dependencies]
 desk-core = { path = "../crates/core" }

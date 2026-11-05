@@ -1,7 +1,8 @@
 //! Composition root for the Heltec Vision Master T190.
 //!
 //! Built with the `demo` feature, a scripted pretend Mac stands in for Bluetooth so the clock can
-//! be tried on its own. With `stats`, frame timing goes to USB serial every 5 s.
+//! be tried on its own. With `stats`, frame timing goes to USB serial every 5 s; with `overlay`,
+//! it is drawn over the picture.
 
 #![no_std]
 #![no_main]
@@ -193,6 +194,10 @@ async fn main(spawner: Spawner) {
     pump::start(panel, peripherals.CPU_CTRL, peripherals.FROM_CPU_INTR1);
     let mut renderer = Box::new_in(Renderer::new(), ExternalMemory);
     let mut unsaved_since: Option<Instant> = None;
+    #[cfg(feature = "overlay")]
+    let mut meter = Box::new_in(desk_ui::FrameMeter::new(), ExternalMemory);
+    #[cfg(feature = "overlay")]
+    let mut last_frame = embassy_time::Instant::now();
 
     loop {
         let t = now();
@@ -238,6 +243,14 @@ async fn main(spawner: Spawner) {
 
         let drawing = embassy_time::Instant::now();
         renderer.draw(&app, t, &mut canvas);
-        pump::hand_over(canvas.pixels(), drawing.elapsed().as_micros() as u32).await;
+        let draw_us = drawing.elapsed().as_micros() as u32;
+        // Frames start as fast as the panel takes them, so their spacing is the frame rate.
+        #[cfg(feature = "overlay")]
+        {
+            meter.record((drawing - last_frame).as_micros() as u32, draw_us);
+            last_frame = drawing;
+            meter.draw(&mut canvas);
+        }
+        pump::hand_over(canvas.pixels(), draw_us).await;
     }
 }

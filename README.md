@@ -53,14 +53,15 @@ cd device
 cargo run --release              # build, flash the clock and watch its serial output
 ```
 
-`--features demo` builds the device with a scripted pretend Mac instead of Bluetooth, and
-`--features stats` prints frame timing over USB serial every 5 s.
+`--features demo` builds the device with a scripted pretend Mac instead of Bluetooth,
+`--features stats` prints frame timing over USB serial every 5 s, and `--features overlay` draws
+the frame rate, drawing time and a chart of the last two seconds of frames over the picture.
 
 Flashing replaces the stock firmware on the board. Coming from the earlier C++ firmware, pair
 again once: on the Mac, forget the clock in Bluetooth settings, then pair it from the app.
 
 Simulator options: `--no-demo`, `--no-backlight`, `--slowmo <factor>`, `--time HH:MM`,
-`--seconds <n>`, `--gif <file>`, `--shots <dir> --at <ms,ms,...>`, `--headless`, and
+`--seconds <n>`, `--gif <file>`, `--shots <dir> --at <ms,ms,...>`, `--headless`, `--overlay`, and
 `--script <ms:cue,...>` with cues `up`, `down`, `longup`, `longdown`, `add`, `remove`, `needs`,
 `pause`, `link`, `sleep`, `pair`, `empty`.
 
