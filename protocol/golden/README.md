@@ -1,5 +1,5 @@
 `frame-v1.hex` is one snapshot frame, hex-encoded, that both sides test against: the firmware
-decodes it (`firmware/test/test_protocol`) and the Mac app encodes the same content to these exact
+decodes it (`firmware/sim/tests/wire.rs`) and the Mac app encodes the same content to these exact
 bytes (`mac/Tests/DeskCoreTests`).
 
 Content: flags = swap buttons; 12:34:56; night 23–08; brightness 80 % day, 12 % night;

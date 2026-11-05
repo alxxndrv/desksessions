@@ -33,31 +33,34 @@ building it.
 ```
 docs/DESIGN.md   design decisions: states, UI, motion, architecture
 protocol/        the BLE frame format, with a golden frame both sides test against
-firmware/        C++20 / PlatformIO: device build, SDL2 simulator, unit tests
+firmware/        Rust: portable core and renderer, device build, simulator, golden tests
 mac/             Swift package: menu-bar app, Codex hook binary, tests
 ```
 
 ## Firmware
 
-Needs [PlatformIO](https://platformio.org/). The simulator also needs SDL2 from Homebrew
-(`brew install sdl2`) and `HOMEBREW_PREFIX` set in the environment.
+Rust. The simulator and tests need only stable Rust (`rustup`); recordings need `ffmpeg`. The
+device build needs the Xtensa toolchain (`cargo install espup espflash && espup install`, then
+`. ~/export-esp.sh` in each shell).
 
 ```
 cd firmware
-pio test -e native_test          # unit tests
-pio run -e sim                   # build the simulator
-.pio/build/sim/program           # run it; ↑/↓ are the two buttons, hold for a long press
-pio run -e t190 -t upload        # flash the clock
-tools/check.sh                   # tests + simulator build
+cargo test                       # unit tests, wire vectors, curves, golden scenarios
+cargo run --release -p desk-sim  # the simulator; ↑/↓ are the two buttons, hold for a long press
+tools/check.sh                   # every gate: fmt, clippy, tests, device builds
+
+cd device
+cargo run --release              # build, flash the clock and watch its serial output
 ```
 
-`t190_demo` is the device build with a scripted pretend Mac instead of Bluetooth, and
-`t190_stats` prints frame timing over USB serial.
+`--features demo` builds the device with a scripted pretend Mac instead of Bluetooth, and
+`--features stats` prints frame timing over USB serial every 5 s.
 
-Flashing replaces the stock firmware on the board.
+Flashing replaces the stock firmware on the board. Coming from the earlier C++ firmware, pair
+again once: on the Mac, forget the clock in Bluetooth settings, then pair it from the app.
 
 Simulator options: `--no-demo`, `--no-backlight`, `--slowmo <factor>`, `--time HH:MM`,
-`--seconds <n>`, `--gif <file>`, `--shots <dir> --at <ms,ms,...>`, and
+`--seconds <n>`, `--gif <file>`, `--shots <dir> --at <ms,ms,...>`, `--headless`, and
 `--script <ms:cue,...>` with cues `up`, `down`, `longup`, `longdown`, `add`, `remove`, `needs`,
 `pause`, `link`, `sleep`, `pair`, `empty`.
 

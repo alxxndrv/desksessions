@@ -203,87 +203,73 @@ from its current presented value and velocity:
 
 ## 8. Firmware & tooling
 
-- C++ / PlatformIO / Arduino core, **LovyanGFX** with full-frame sprite (~109 KB) + DMA, custom
-  animation engine (springs, cubic-bézier, Pebble frame tables).
-- Portable UI core (model, animation, rendering) with no Arduino/BLE deps.
-- Two envs: `esp32s3` (device) and `native` (**SDL2 simulator** via LovyanGFX `Panel_sdl`, ×3 scale,
-  ↑/↓ keys = BOOT/GPIO21 with hold = long-press).
-- Simulator: scripted scenario timelines, optional live feed from the Mac app over a local socket,
-  slow-mo toggle, GIF recording for motion review.
+- **Rust** (since 2026-11; ported from C++/PlatformIO/LovyanGFX, see `docs/RUST_PORT.md`).
+  `esp-hal` + Embassy on the device, `trouble` as the BLE host.
+- Portable crates with no BLE or display dependencies, `no_std` and allocation-free:
+  `core` (domain, app, animation, wire format, scenes) and `ui` (canvas, VLW fonts, renderer). The
+  canvas reproduces LovyanGFX's rasterisers (anti-aliased wedge lines and rounded rects, arcs, VLW
+  text with fractional scale), so the pictures are the ones the C++ firmware drew.
+- **Simulator** on the Mac (`minifb` window, ×3 scale, ↑/↓ = BOOT/GPIO21 with hold = long-press,
+  or `--headless`): scripted timelines, slow motion, stills and GIF/MP4 recording via ffmpeg.
 
 ## 9. Firmware architecture (approved)
 
-**Hexagonal (Ports & Adapters) + one active object with a hierarchical state machine + DDD-lite.**
-OOP where it pays, plain data where it's hot.
+**Hexagonal (Ports & Adapters) + one active object + DDD-lite.**
+Types where it pays, plain data where it's hot.
 
 ```
- NimBLE host task (core 0)    buttons (1 kHz poll)    [sim: SDL thread / script]
+ BLE task (trouble host)       buttons (polled per frame)    [sim: keyboard / script]
         \______________________ | ______________________/
-                lock-free SPSC event queues (one per producer)
- ┌──────────── UI task: sole owner of all state ────────────┐
- │ AppHsm: Unpaired → Pairing → Online ⇄ Offline (+Night)   │
+             Embassy channels (BLE → UI chunks + link events; UI → BLE commands)
+ ┌──────────── UI loop: sole owner of all state ────────────┐
+ │ Connection phases: Unpaired → Pairing → Online ⇄ Offline │
  │  domain/ SessionBoard aggregate, Session value types     │
- │  app/    Presenter → BoardViewModel                      │
- │  anim/   Animator: POD springs/curves, fixed 120 Hz step  │
- │  ui/     render(const ViewModel&, Sprite&) → DMA          │
- └──── Ports: Clock · CommandLink · SettingsStore · Log ─────┘
+ │  scene/  BoardScene, StageScene: retained motion state   │
+ │  anim/   Channel: springs/curves, fixed 120 Hz step      │
+ │  ui/     Renderer::draw(&DeskApp, Canvas) → frame pump   │
+ └──── Ports: MacLink trait · backlight level from tick ────┘
 ```
 
 - **DDD-lite**: ubiquitous language (Session, Board, Snapshot, Dismiss, Jump); one aggregate
   `SessionBoard` owns invariants (snapshot apply, cursor stability across reorders, optimistic
   dismiss). No repositories / domain services.
-- **OOP**: domain, HSM, ports/adapters; constructor injection by reference into static-storage
-  objects, wired in a composition root (`setup()` / sim `main`). No singletons, no `new` after init.
-  Display is not a port (LovyanGFX already abstracts it).
-- **Relaxed (data-oriented)**: animation state = POD arrays stepped in one loop; renderer = pure
-  function; snapshots/commands/events = plain aggregates. Events as `std::variant` + `std::visit`.
-- **Toolchain**: **pioarduino** (Arduino core 3.x / ESP-IDF 5 / GCC 14.2), **C++20**, pinned
-  platform version. Exceptions on by default but never thrown; RTTI off (no `dynamic_cast`/`typeid`);
-  fallible calls return `[[nodiscard]]` `std::optional` / `etl::expected`.
-- **Memory**: zero heap after init. ETL fixed-capacity containers (`etl::string<N>`,
-  `etl::vector<T,N>`, `etl::delegate`), `std::array`. Bound session count + title length in the BLE
-  adapter. Frame sprite (320×170×2 = 108,800 B) in internal DMA-capable RAM.
-- **Concurrency**: BLE callback only parses into a fixed `SnapshotFrame` and pushes to an SPSC
-  queue; never touch domain/UI from the NimBLE task; no mutexes around domain state; no `delay()`
-  in the tick. Stack-overflow checks on; watch NimBLE host task (4 KB) high-water mark.
-- **Time**: only via the `Clock` port → deterministic tests and sim. Fixed-timestep accumulator
-  for springs; bézier / Pebble tables are pure functions of t.
-- **Standards**: C++ Core Guidelines subset; MISRA C++:2023 as reading list (no heap after init,
-  no implicit narrowing, everything initialized, `enum class`). `std::chrono` for time, `Px` strong
-  type at API boundaries, `const`/`constexpr` by default. clang-tidy (`bugprone-*`,
-  `cppcoreguidelines-*`, `modernize-*`, `performance-*`, `readability-identifier-naming`,
-  `misc-const-correctness`) on native; `lib/core` built with
-  `-Wall -Wextra -Wconversion -Wshadow -Werror`. `.clang-format`: Google base, ColumnLimit 100.
-- **Tests**: GoogleTest on `native_test` for domain, HSM, animation maths. Fakes: `FakeClock`,
-  `RecordingLink`, scripted snapshot frames. Optional golden-image tests (render to off-screen
-  sprite, hash). On-device: smoke only.
+- **Ports**: `MacLink` is a trait the BLE link, the demo scenario and test fakes implement;
+  `DeskApp::tick` returns the backlight level instead of calling out. Composition roots:
+  `device/src/main.rs` and the simulator's `Simulation`.
+- **Data-oriented where hot**: animation state lives in `Channel`s stepped once per frame; the
+  renderer is a function of the app state; snapshots, commands and link events are enums.
+- **Toolchain**: stable Rust for the host crates; the `esp` toolchain (Xtensa) for `device/`,
+  which is its own workspace. `unsafe` forbidden in the portable crates, denied in the device crate.
+- **Memory**: no heap in `core`/`ui`; `heapless` containers sized by the protocol limits (16
+  sessions, 48-byte names). On the device the 108,800 B frame lives in octal PSRAM (internal RAM
+  is needed by Bluetooth) and streams to the panel through two internal DMA bounce buffers, five
+  64-row bands.
+- **Concurrency**: the BLE task only forwards chunks and link events; it never touches domain or
+  UI state. Settings and the bond are stored in a `desk` flash partition (`sequential-storage`).
+- **Time**: `Instant`/`Millis` passed in from outside → deterministic tests and sim. Fixed-timestep
+  accumulator for springs; bézier / Pebble tables are pure functions of t.
+- **Tests**: unit tests per module (ported from the C++ GoogleTest suite), plus golden checks
+  against the C++ firmware: wire vectors byte for byte, curves within 1e-4, per-frame app state
+  for twelve scenarios, and stills (`firmware/golden/`). `cargo xtask check` runs every gate.
 
 ## 10. Repo layout
 
 ```
 desksessions/
 ├─ docs/DESIGN.md
-├─ protocol/                 BLE frame spec
+├─ protocol/                 BLE frame spec + golden frame
 ├─ mac/                      SwiftUI menu-bar app + desksessions-hook binary
-└─ firmware/
-   ├─ platformio.ini         envs: esp32s3, native (sim), native_test
-   ├─ lib/core/              pure C++: include/desk/{domain,app,anim,util}, src/
-   ├─ lib/ui/                core + LovyanGFX: renderer, theme, layout, fonts, glyphs
-   ├─ src/esp32/             composition root, NimBLE link, buttons, NVS, LGFX ST7789 config
-   ├─ src/sim/               Panel_sdl main, keyboard buttons, fake link (script/socket), file store
-   ├─ test/                  fakes.hpp, test_domain/, test_anim/, test_app_hsm/
-   ├─ tools/                 send_snapshot script for the sim
-   └─ .clang-format  .clang-tidy
+└─ firmware/                 Cargo workspace
+   ├─ crates/core/           no_std: domain, app, anim, protocol, scene
+   ├─ crates/ui/             no_std: canvas (LovyanGFX-compatible), VLW fonts, glyphs, renderer
+   ├─ crates/demo/           the scripted pretend Mac
+   ├─ sim/                   simulator binary + golden tests
+   ├─ golden/                scenarios, frozen C++ fixtures, golden stills
+   ├─ xtask/                 `cargo xtask check | bless`
+   ├─ device/                ESP32-S3 firmware (own workspace, `esp` toolchain)
+   ├─ fonts/  tools/         Golos Text and the VLW generator; check.sh
+   └─ rust-toolchain.toml  rustfmt.toml
 ```
-
-Envs select adapters via `build_src_filter` (`+<esp32/>` / `+<sim/>`); `native_test` uses
-`test_framework = googletest`, `lib_ignore = ui`.
-Exemplars: LovyanGFX `examples_for_PC/PlatformIO_SDL`, `lvgl/lv_platformio`.
-
-Sources: Cockburn "Hexagonal Architecture"; Samek *Practical UML Statecharts*; Seemann "Composition
-Root"; Fiedler "Fix Your Timestep!"; van Ooijen "Objects? No Thanks!"; Acton "Data-Oriented Design
-and C++"; Estell "C++ Exceptions for Smaller Firmware" (CppCon 2024); Grenning *TDD for Embedded C*;
-Kormanyos *Real-Time C++*; ETL; C++ Core Guidelines; MISRA C++:2023.
 
 ## 11. Open
 
