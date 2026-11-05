@@ -4,7 +4,7 @@ Agreed 2026-11-06. The firmware moves from C++ (PlatformIO, Arduino, LovyanGFX, 
 
 ## Status
 
-Milestones 1–4 and 6 are done; 5 is built but not yet run on hardware.
+All six milestones are done; the firmware runs on the clock.
 
 - Wire format: every vector from the C++ encoder, decoder and reassembler matches byte for byte,
   and the Mac's golden frame decodes.
@@ -12,14 +12,26 @@ Milestones 1–4 and 6 are done; 5 is built but not yet run on hardware.
 - Scenes: twelve scripted scenarios agree with the C++ app's animated state on every frame.
 - Pixels: 182 of 183 stills from the C++ simulator matched bit for bit; the last was one pixel off.
   The Rust stills are now the baseline (`cargo xtask bless`).
-- Device: builds for the ESP32-S3 (`firmware/device`, 879 KB image) with `esp-hal` 1.2,
-  `esp-radio` 1.0.0-beta.1, `esp-rtos` 0.4 and `trouble-host` 0.7 (0.8 needs a newer `bt-hci` than
-  `esp-radio` ships). Not yet flashed: pairing with the Mac, re-encryption after a reboot, the
-  scanline read and the frame rate still need checking on the clock.
+- Device: `esp-hal` 1.2, `esp-radio` 1.0.0-beta.1, `esp-rtos` 0.4 and `trouble-host` 0.7 (0.8 needs
+  a newer `bt-hci` than `esp-radio` ships). Flash in DIO (`.cargo/config.toml`): the T190 boot-loops
+  in QIO.
+
+Measured on the T190 (2026-11-06, `--features stats`):
+
+| Build | Image | Screen | fps | Draw | Send |
+|---|---|---|---|---|---|
+| Bluetooth | 916 KB (C++: 855 KB) | pairing | 58 | 9 ms | 10 ms |
+| `demo` | 429 KB | busy session list | 57–58 | 14 ms | 10 ms |
+
+The panel's scan, not the code, sets the ceiling: each frame waits for the scanline to pass. The
+drawing core never waits for the wire. Core 1 sends from two PSRAM buffers (`device/src/pump.rs`);
+without that, the busy list ran at 29 fps.
 
 Deviations from the C++ device build, all forced by the platform:
-- The frame buffer is in PSRAM and goes out in five 64-row bands through internal DMA buffers
-  (one SPI DMA transfer is at most 32 KB, and two 108 KB frames don't fit next to Bluetooth).
+- Drawing happens in one internal-RAM frame (drawing through the PSRAM cache was twice as slow).
+  Finished frames are copied into one of two PSRAM buffers and go out in five 64-row bands through
+  internal DMA buffers: one SPI DMA transfer is at most 32 KB, and three 108 KB frames don't fit
+  next to Bluetooth.
 - Settings and the bond live in a `desk` flash partition (`device/partitions.csv`), not NimBLE's
   and Arduino's NVS keys, so the clock needs pairing once after the switch.
 - The Bluetooth address is the public one, as NimBLE used; the name is still `desk-XXXX`.
