@@ -130,6 +130,11 @@ pub struct Canvas<B> {
     width: i32,
     height: i32,
     rotation: u8,
+    /// Storage index of logical (x, y) is `origin + x·step_x + y·step_y`: a rotation or flip is
+    /// an affine map, worked out once per rotation rather than per pixel.
+    origin: isize,
+    step_x: isize,
+    step_y: isize,
     /// Pixels are stored byte-swapped (big-endian), the order the panel's SPI bus wants.
     swapped: bool,
     clip_l: i32,
@@ -154,6 +159,9 @@ impl<B: AsRef<[u16]> + AsMut<[u16]>> Canvas<B> {
             width: panel_width,
             height: panel_height,
             rotation: 0,
+            origin: 0,
+            step_x: 1,
+            step_y: panel_width as isize,
             swapped: false,
             clip_l: 0,
             clip_r: 0,
@@ -182,6 +190,9 @@ impl<B: AsRef<[u16]> + AsMut<[u16]>> Canvas<B> {
             self.width = self.panel_height;
             self.height = self.panel_width;
         }
+        let at = |x, y| self.rotated_index(x, y) as isize;
+        let origin = at(0, 0);
+        (self.origin, self.step_x, self.step_y) = (origin, at(1, 0) - origin, at(0, 1) - origin);
         self.clear_clip_rect();
     }
 
@@ -209,6 +220,11 @@ impl<B: AsRef<[u16]> + AsMut<[u16]>> Canvas<B> {
     // Pixel access
 
     fn index(&self, x: i32, y: i32) -> usize {
+        (self.origin + x as isize * self.step_x + y as isize * self.step_y) as usize
+    }
+
+    /// LovyanGFX's sprite rotation, spelled out; [`Canvas::index`] is its affine form.
+    fn rotated_index(&self, x: i32, y: i32) -> usize {
         let (mut x, mut y) = (x, y);
         let r = self.rotation;
         if r != 0 {
@@ -227,7 +243,16 @@ impl<B: AsRef<[u16]> + AsMut<[u16]>> Canvas<B> {
 
     fn store(&mut self, x: i32, y: i32, color: u16) {
         let i = self.index(x, y);
+        self.put(i, color);
+    }
+
+    fn put(&mut self, i: usize, color: u16) {
         self.pixels.as_mut()[i] = if self.swapped { color.swap_bytes() } else { color };
+    }
+
+    fn load(&self, i: usize) -> u16 {
+        let raw = self.pixels.as_ref()[i];
+        if self.swapped { raw.swap_bytes() } else { raw }
     }
 
     /// The RGB565 value at logical `(x, y)`.
@@ -252,9 +277,21 @@ impl<B: AsRef<[u16]> + AsMut<[u16]>> Canvas<B> {
         let (x0, x1) = (ax.min(bx), ax.max(bx));
         let (y0, y1) = (ay.min(by), ay.max(by));
         let raw = if self.swapped { color.swap_bytes() } else { color };
+        let pair = u32::from(raw) << 16 | u32::from(raw);
         let pixels = self.pixels.as_mut();
         for row in y0..=y1 {
-            pixels[row * pw + x0..=row * pw + x1].fill(raw);
+            let span = &mut pixels[row * pw + x0..=row * pw + x1];
+            // Rotated, a rectangle's column is a short storage row: splitting it costs more than
+            // it saves.
+            if span.len() < 8 {
+                span.fill(raw);
+                continue;
+            }
+            // Two pixels per store where the row is word-aligned.
+            let (head, words, tail) = bytemuck::pod_align_to_mut::<u16, u32>(span);
+            head.fill(raw);
+            words.fill(pair);
+            tail.fill(raw);
         }
     }
 
@@ -445,21 +482,20 @@ impl<B: AsRef<[u16]> + AsMut<[u16]>> Canvas<B> {
         if !self.clip(&mut x, &mut y, &mut w, &mut h) {
             return;
         }
-        let a = u32::from(alpha);
-        let inv = 256 - a;
-        let r = ((color >> 16) & 0xFF) * (1 + a);
-        let g = ((color >> 8) & 0xFF) * (1 + a);
-        let b = (color & 0xFF) * (1 + a);
+        let blend = AlphaFill::new(alpha, color);
         for row in y..y + h {
             for col in x..x + w {
-                let (dr, dg, db) = self.get_rgb(col, row);
-                let out = rgb888(
-                    ((r + u32::from(dr) * inv) >> 8) as u8,
-                    ((g + u32::from(dg) * inv) >> 8) as u8,
-                    ((b + u32::from(db) * inv) >> 8) as u8,
-                );
-                self.store(col, row, rgb565(out));
+                let i = self.index(col, row);
+                self.put(i, blend.over(self.load(i)));
             }
+        }
+    }
+
+    /// [`Canvas::fill_rect_alpha`] for one pixel, without the rectangle clipping.
+    fn blend_pixel(&mut self, x: i32, y: i32, blend: &AlphaFill) {
+        if self.in_clip(x, y) {
+            let i = self.index(x, y);
+            self.put(i, blend.over(self.load(i)));
         }
     }
 
@@ -515,11 +551,11 @@ impl<B: AsRef<[u16]> + AsMut<[u16]>> Canvas<B> {
                     cx += 1;
                     continue;
                 }
-                let alpha = (alphaf * 255.0) as u8;
-                self.fill_rect_alpha(x + cx - r, y + cy - r, 1, 1, alpha, edge);
-                self.fill_rect_alpha(x - cx + r + w, y + cy - r, 1, 1, alpha, edge);
-                self.fill_rect_alpha(x - cx + r + w, y - cy + r + h, 1, 1, alpha, edge);
-                self.fill_rect_alpha(x + cx - r, y - cy + r + h, 1, 1, alpha, edge);
+                let blend = AlphaFill::new((alphaf * 255.0) as u8, edge);
+                self.blend_pixel(x + cx - r, y + cy - r, &blend);
+                self.blend_pixel(x - cx + r + w, y + cy - r, &blend);
+                self.blend_pixel(x - cx + r + w, y - cy + r + h, &blend);
+                self.blend_pixel(x + cx - r, y - cy + r + h, &blend);
                 cx += 1;
             }
             self.write_fast_hline(x + cx - r, y + cy - r, 2 * (r - cx) + 1 + w, raw);
@@ -608,7 +644,7 @@ impl<B: AsRef<[u16]> + AsMut<[u16]>> Canvas<B> {
                 if alpha > HI_ALPHA {
                     canvas.write_pixel(xp, yp, solid);
                 } else {
-                    canvas.fill_rect_alpha(xp, yp, 1, 1, (alpha * 255.0) as u8, color);
+                    canvas.blend_pixel(xp, yp, &AlphaFill::new((alpha * 255.0) as u8, color));
                 }
                 xp += 1;
             }
@@ -955,25 +991,55 @@ impl<B: AsRef<[u16]> + AsMut<[u16]>> Canvas<B> {
                     continue;
                 }
                 let p = 1 + u32::from(coverage);
+                let (fr, fg, fb) = (fore_r * p, fore_g * p, fore_b * p);
+                let q = 257 - p;
+                // Columns are inside the clip already; rows may run past its bottom.
+                let rows = bh.min(clip_bottom + 1 - by);
                 while x0 < x1 {
-                    for yy in 0..bh {
-                        let (px, py) = (x + rx + x0, by + yy);
-                        if !self.in_clip(px, py) {
-                            continue;
-                        }
-                        let (r, g, b) = self.get_rgb(px, py);
+                    for yy in 0..rows {
+                        let i = self.index(x + rx + x0, by + yy);
+                        let (r, g, b) = expand565(self.load(i));
                         let blended = rgb888(
-                            ((fore_r * p + u32::from(r) * (257 - p)) >> 8) as u8,
-                            ((fore_g * p + u32::from(g) * (257 - p)) >> 8) as u8,
-                            ((fore_b * p + u32::from(b) * (257 - p)) >> 8) as u8,
+                            ((fr + u32::from(r) * q) >> 8) as u8,
+                            ((fg + u32::from(g) * q) >> 8) as u8,
+                            ((fb + u32::from(b) * q) >> 8) as u8,
                         );
-                        self.store(px, py, rgb565(blended));
+                        self.put(i, rgb565(blended));
                     }
                     x0 += 1;
                 }
             }
         }
         x_advance
+    }
+}
+
+/// LovyanGFX's alpha fill: `color` at `alpha` / 255 over what is there, through 8-bit channels.
+struct AlphaFill {
+    inv: u32,
+    r: u32,
+    g: u32,
+    b: u32,
+}
+
+impl AlphaFill {
+    fn new(alpha: u8, color: Rgb888) -> Self {
+        let a = u32::from(alpha);
+        Self {
+            inv: 256 - a,
+            r: ((color >> 16) & 0xFF) * (1 + a),
+            g: ((color >> 8) & 0xFF) * (1 + a),
+            b: (color & 0xFF) * (1 + a),
+        }
+    }
+
+    fn over(&self, below: u16) -> u16 {
+        let (dr, dg, db) = expand565(below);
+        rgb565(rgb888(
+            ((self.r + u32::from(dr) * self.inv) >> 8) as u8,
+            ((self.g + u32::from(dg) * self.inv) >> 8) as u8,
+            ((self.b + u32::from(db) * self.inv) >> 8) as u8,
+        ))
     }
 }
 

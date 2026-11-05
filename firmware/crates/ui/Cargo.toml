@@ -11,6 +11,7 @@ std = ["desk-core/std"]
 [dependencies]
 desk-core.workspace = true
 heapless.workspace = true
+bytemuck = "1"
 libm.workspace = true
 
 [lints]
