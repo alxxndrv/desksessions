@@ -1,5 +1,5 @@
-# Golden scenarios: name, then simulator arguments. Each runs in the C++ reference simulator
-# (`cargo xtask reference`) and in the Rust one (`cargo test -p desk-sim --test golden`); the
+# Golden scenarios: name, then simulator arguments. Each ran in the C++ simulator to make the
+# reference traces, and runs in the Rust one (`cargo test -p desk-sim --test golden`); the
 # stills at --at must match, and so must the app's state on every frame in between.
 
 demo: --time 12:00 --shots . --at 100,500,1000,3000,3550,3700,4000,7050,7200,7400,10600,10700,14100,14300,17600,17700,21100,21300,24600,24800,28100,29000
