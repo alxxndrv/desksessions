@@ -15,3 +15,7 @@ libm.workspace = true
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+desk-core = { workspace = true, features = ["std"] }
+desk-demo.workspace = true

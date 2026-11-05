@@ -244,19 +244,17 @@ impl<B: AsRef<[u16]> + AsMut<[u16]>> Canvas<B> {
     }
 
     fn fill_preclipped(&mut self, x: i32, y: i32, w: i32, h: i32, color: u16) {
-        if self.rotation == 0 && !self.swapped {
-            let pw = self.panel_width as usize;
-            let pixels = self.pixels.as_mut();
-            for row in y..y + h {
-                let start = row as usize * pw + x as usize;
-                pixels[start..start + w as usize].fill(color);
-            }
-            return;
-        }
-        for row in y..y + h {
-            for col in x..x + w {
-                self.store(col, row, color);
-            }
+        // Rotating or flipping a rectangle gives a rectangle: fill it row by row in storage.
+        let a = self.index(x, y);
+        let b = self.index(x + w - 1, y + h - 1);
+        let pw = self.panel_width as usize;
+        let (ax, ay, bx, by) = (a % pw, a / pw, b % pw, b / pw);
+        let (x0, x1) = (ax.min(bx), ax.max(bx));
+        let (y0, y1) = (ay.min(by), ay.max(by));
+        let raw = if self.swapped { color.swap_bytes() } else { color };
+        let pixels = self.pixels.as_mut();
+        for row in y0..=y1 {
+            pixels[row * pw + x0..=row * pw + x1].fill(raw);
         }
     }
 
@@ -1035,6 +1033,23 @@ mod tests {
         c.dot(50.0, 50.0, 3.0, 0xFFFFFF);
         c.fill_rect(0, 0, 1, 1, 0xFFFFFF);
         assert_eq!(c.get(0, 0), 0xFFFF);
+    }
+
+    #[test]
+    fn rotated_fills_cover_exactly_their_rectangle() {
+        for rotation in 0..4 {
+            let mut fast = Canvas::new(vec![0; 170 * 320], 170, 320);
+            let mut slow = Canvas::new(vec![0; 170 * 320], 170, 320);
+            fast.set_rotation(rotation);
+            slow.set_rotation(rotation);
+            fast.fill_rect(13, 7, 41, 29, 0xFF8040);
+            for y in 7..7 + 29 {
+                for x in 13..13 + 41 {
+                    slow.store(x, y, rgb565(0xFF8040));
+                }
+            }
+            assert_eq!(fast.pixels(), slow.pixels(), "rotation {rotation}");
+        }
     }
 
     #[test]

@@ -230,6 +230,7 @@ name = "desk-ui"
 version = "0.1.0"
 dependencies = [
  "desk-core",
+ "desk-demo",
  "heapless",
  "libm",
 ]
