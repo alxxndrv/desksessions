@@ -16,12 +16,16 @@ All six milestones are done; the firmware runs on the clock.
   a newer `bt-hci` than `esp-radio` ships). Flash in DIO (`.cargo/config.toml`): the T190 boot-loops
   in QIO.
 
-Measured on the T190 (2026-11-06, `--features stats`):
+Measured on the T190 (2026-11-06, `--features stats`), against the last C++ build
+(`ee9f304`, PlatformIO `t190_stats` and `t190_demo` + `DESK_FRAME_STATS`):
 
-| Build | Image | Screen | fps | Draw | Send |
-|---|---|---|---|---|---|
-| Bluetooth | 916 KB (C++: 855 KB) | pairing | 58 | 9 ms | 10 ms |
-| `demo` | 429 KB | busy session list | 57–58 | 14 ms | 10 ms |
+| | C++ | Rust |
+|---|---|---|
+| Pairing screen | 58 fps, draw 5.8 ms, send 11.2 ms | 58 fps, draw 8.9 ms, send 10.0 ms |
+| Busy session list (demo) | 40–43 fps, draw 24 ms, send 11.3 ms | 57–58 fps, draw 14 ms, send 10.1 ms |
+| Image, Bluetooth build | 856 KB | 916 KB |
+| Image, demo build | 635 KB | 405 KB |
+| Code in internal RAM (IRAM) | 102 KB | 41 KB |
 
 The panel's scan, not the code, sets the ceiling: each frame waits for the scanline to pass. The
 drawing core never waits for the wire. Core 1 sends from two PSRAM buffers (`device/src/pump.rs`);
