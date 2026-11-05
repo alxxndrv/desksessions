@@ -1,0 +1,69 @@
+[package]
+name = "desk-device"
+description = "Firmware for the Heltec Vision Master T190 (ESP32-S3, ST7789 170×320)."
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+# Built for the ESP32-S3 with the `esp` toolchain, so not part of the host workspace.
+[workspace]
+
+[[bin]]
+name = "desk-device"
+path = "src/main.rs"
+test = false
+bench = false
+
+[features]
+# A scripted pretend Mac instead of Bluetooth, to try the clock on its own.
+demo = ["dep:desk-demo"]
+# Frame timing over USB serial every 5 s.
+stats = []
+
+[dependencies]
+desk-core = { path = "../crates/core" }
+desk-ui = { path = "../crates/ui" }
+desk-demo = { path = "../crates/demo", optional = true }
+
+esp-hal = { version = "1.2", features = ["esp32s3", "unstable"] }
+esp-rtos = { version = "0.4", features = ["esp32s3", "embassy", "esp-alloc", "esp-radio"] }
+esp-radio = { version = "1.0.0-beta.1", features = ["esp32s3", "ble", "unstable"] }
+esp-alloc = { version = "0.11", features = ["esp32s3"] }
+esp-backtrace = { version = "0.20", features = ["esp32s3", "panic-handler", "println"] }
+esp-println = { version = "0.18", features = ["esp32s3"] }
+esp-bootloader-esp-idf = { version = "0.6", features = ["esp32s3"] }
+esp-storage = { version = "0.10", features = ["esp32s3", "embedded-storage"] }
+
+embassy-executor = "0.10"
+embassy-time = "0.5"
+embassy-sync = "0.8"
+embassy-futures = "0.1"
+embassy-embedded-hal = "0.6"
+embedded-storage = "0.3"
+embedded-storage-async = "0.4"
+sequential-storage = "8"
+
+trouble-host = { version = "0.7", features = ["security", "derive", "default-packet-pool-mtu-255"] }
+
+bytemuck = "1"
+heapless = "0.9"
+static_cell = "2"
+
+[profile.dev]
+# Debug builds are too slow to animate at 60 fps.
+opt-level = "s"
+
+[profile.release]
+codegen-units = 1
+debug = 2
+debug-assertions = false
+lto = "fat"
+opt-level = 3
+overflow-checks = false
+
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+float_cmp = "allow"

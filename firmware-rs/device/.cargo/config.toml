@@ -1,0 +1,17 @@
+[build]
+target = "xtensa-esp32s3-none-elf"
+rustflags = [
+  # Backtraces on panic (esp-backtrace).
+  "-C", "force-frame-pointers",
+  # esp-hal's memory layout maps one segment read-write-execute on purpose.
+  "-C", "link-arg=-Wl,--no-warn-rwx-segments",
+]
+
+[target.xtensa-esp32s3-none-elf]
+runner = "espflash flash --monitor --chip esp32s3 --flash-size 8mb --partition-table partitions.csv"
+
+[env]
+ESP_LOG = "info"
+
+[unstable]
+build-std = ["alloc", "core"]
